@@ -36,7 +36,7 @@ from google.adk.apps import App
 from google.adk.workflow import Edge, Workflow, START
 
 from app.agents_llm import free_alt_score, instructor_verify, parse_course, verdict_agent
-from app.nodes import budget_gate, quick_verdict, security_screen
+from app.nodes import budget_gate, quick_verdict, security_screen, rubric_scoring_node
 
 # ---------------------------------------------------------------------------
 # Workflow DAG Definition
@@ -53,7 +53,8 @@ root_agent = Workflow(
         # Path B: Full analysis path for high-cost or high-risk courses
         Edge(from_node=budget_gate, to_node=instructor_verify, route="full"),
         Edge(from_node=instructor_verify, to_node=free_alt_score),
-        Edge(from_node=free_alt_score, to_node=verdict_agent),
+        Edge(from_node=free_alt_score, to_node=rubric_scoring_node),
+        Edge(from_node=rubric_scoring_node, to_node=verdict_agent),
     ],
 )
 

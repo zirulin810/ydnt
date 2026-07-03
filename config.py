@@ -42,8 +42,8 @@ DEFAULT_BUDGET_CAP: float = float(os.getenv("DEFAULT_BUDGET_CAP", "50.0"))
 # ---------------------------------------------------------------------------
 # Mock / Development
 # ---------------------------------------------------------------------------
-# Set USE_MOCK=1 to use cached responses instead of real API calls
-USE_MOCK: bool = os.getenv("USE_MOCK", "0") == "1"
+# Set USE_MOCK=0 to disable cached responses (default: 1 / True)
+USE_MOCK: bool = os.getenv("USE_MOCK", "1") == "1" or not YOUTUBE_API_KEY
 
 # Cache directory for mock data
 CACHE_DIR: str = os.getenv("CACHE_DIR", "cache")

@@ -14,102 +14,29 @@
 
 """LlmAgents definitions for the YDNT project.
 
-Design: Defines the four structured LLM agents. Connects tools programmatically using
-McpToolset stdio subprocesses to ensure portability across execution environments.
+Design: Defines the four structured LLM agents. Tools are directly imported as native Python
+functions to avoid process startup overhead and connection timeouts on Windows.
 """
 
 from __future__ import annotations
 
-import json
-import os
-import sys
-
 from google.adk.agents import LlmAgent
 from google.adk.models import Gemini
-from google.adk.tools.mcp_tool import McpToolset
-from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
 from google.genai import types
-from mcp import StdioServerParameters
 
+from app.mcp_server import (
+    fetch_sales_page,
+    get_channel_stats,
+    get_youtube_transcript,
+    search_youtube,
+    verify_github_user,
+    web_search,
+)
 from app.schemas import CourseProfile, FreeAlternatives, InstructorEvidence, Verdict
 from config import MODEL_JUDGMENT, MODEL_ROUTING
 
 # Centralized retry options for model requests
 _RETRY_OPTIONS = types.HttpRetryOptions(attempts=3)
-
-# ---------------------------------------------------------------------------
-# MCP Toolset Helper
-# ---------------------------------------------------------------------------
-_PYTHON_PATH = sys.executable
-_SERVER_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "mcp_server.py")
-)
-
-
-def _create_mcp_toolset(tool_filter: list[str]) -> McpToolset:
-    """Helper to instantiate a programmatic McpToolset for the local server.
-
-    Args:
-        tool_filter: List of tool names to expose to the LLM.
-
-    Returns:
-        An instantiated McpToolset.
-    """
-    return McpToolset(
-        connection_params=StdioConnectionParams(
-            server_params=StdioServerParameters(
-                command=_PYTHON_PATH,
-                args=[_SERVER_PATH],
-            )
-        ),
-        tool_filter=tool_filter,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Python Function Tools
-# ---------------------------------------------------------------------------
-def run_rubric_scoring(
-    course_profile_json: str,
-    instructor_evidence_json: str,
-    free_alternatives_json: str,
-) -> dict:
-    """Runs the deterministic rubric scoring engine.
-
-    Design: Executes the Level 4 skill script via subprocess to compute score flags.
-
-    Args:
-        course_profile_json: JSON string of CourseProfile.
-        instructor_evidence_json: JSON string of InstructorEvidence.
-        free_alternatives_json: JSON string of FreeAlternatives.
-
-    Returns:
-        The verdict JSON output from score.py.
-    """
-    try:
-        import subprocess
-
-        script_path = os.path.abspath(
-            os.path.join(
-                os.path.dirname(__file__),
-                "../.agents/skills/course-rubric/scripts/score.py",
-            )
-        )
-        result = subprocess.run(
-            [
-                sys.executable,
-                script_path,
-                course_profile_json,
-                instructor_evidence_json,
-                free_alternatives_json,
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return json.loads(result.stdout.strip())
-    except Exception as e:
-        return {"error": f"Failed to run rubric scoring: {e}"}
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +63,7 @@ parse_course = LlmAgent(
         "- Recruitment signals (MLM elements, students becoming resellers/coaches for the course itself)\n"
         "Do not invent facts. If information is missing, use default empty lists or values."
     ),
-    tools=[_create_mcp_toolset(tool_filter=["fetch_sales_page"])],
+    tools=[fetch_sales_page],
     output_schema=CourseProfile,
     output_key="course_profile",
 )
@@ -159,16 +86,7 @@ instructor_verify = LlmAgent(
         "3. Their stats using get_channel_stats or transcripts using get_youtube_transcript.\n"
         "Synthesize your findings and output a structured InstructorEvidence report."
     ),
-    tools=[
-        _create_mcp_toolset(
-            tool_filter=[
-                "verify_github_user",
-                "get_channel_stats",
-                "get_youtube_transcript",
-                "web_search",
-            ]
-        )
-    ],
+    tools=[verify_github_user, get_channel_stats, get_youtube_transcript, web_search],
     output_schema=InstructorEvidence,
     output_key="instructor_evidence",
 )
@@ -193,11 +111,7 @@ free_alt_score = LlmAgent(
         "- Whether the alternative shows signs of low-quality content farming (AI voiceovers, no real hands-on demo, low value)\n"
         "Compile this into a structured FreeAlternatives list."
     ),
-    tools=[
-        _create_mcp_toolset(
-            tool_filter=["search_youtube", "get_youtube_transcript"]
-        )
-    ],
+    tools=[search_youtube, get_youtube_transcript],
     output_schema=FreeAlternatives,
     output_key="free_alternatives",
 )
@@ -214,16 +128,10 @@ verdict_agent = LlmAgent(
     instruction=(
         "You are the final judge of YDNT (You Don't Need This). Your task is to produce the final, evidence-based "
         "due diligence verdict and buying recommendation.\n"
-        "You MUST call the run_rubric_scoring tool to compute the deterministic rubric results.\n"
-        "Provide a structured Verdict recommendation:\n"
-        "- A_should_not: Don't buy because seller is deceptive, course is recruitment MLM, or uses fake scarcity.\n"
-        "- B_need_not: Don't buy because high-quality free alternatives cover most of it and extraction cost is low.\n"
-        "- worth_buying: The free alternatives are messy/high extraction cost, the instructor is highly credible, "
-        "and the course offers high value under budget cap.\n"
-        "- insufficient: Not enough data to make a recommendation.\n"
-        "Support your flags (red/green) with concrete evidence links and details. Contrast money vs. time costs."
+        "You will receive the deterministic rubric scoring result containing 'mode', 'red_flags', and 'green_flags'.\n"
+        "Translate this data directly into the final Verdict output. Do not make up flags. Provide a detailed, "
+        "professional evidence-based conclusion summarizing the due diligence findings."
     ),
-    tools=[run_rubric_scoring],
     output_schema=Verdict,
     output_key="verdict",
 )
