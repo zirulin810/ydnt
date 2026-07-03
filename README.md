@@ -1,89 +1,156 @@
-# ydnt
+# 「YOU DON'T NEED THIS」— 線上課程盡職調查 Agent (YDNT)
 
-Simple ReAct agent
-Agent generated with `agents-cli` version `0.5.1`
+> **Kaggle 5-Day AI Agents Competition Submission**  
+> **Track**: Agents for Good (消費者保護)  
+> **技術棧**: Google ADK 2.0 + Agents CLI + FastMCP + Pydantic + Semgrep
 
-## Project Structure
+---
+
+## 1. 專案定位與核心價值
+
+### 檸檬市場問題 (Akerlof 檸檬市場理論)
+線上課程（特別是自營、無第三方平台審查的 Skool / Whop / Gumroad 高價變現課）是一個典型的資訊不對稱市場。買家在付款前無法觀察內容質量，導致市場充斥著「假見證、虛假稀缺、MLM 轉售招募」等劣質產品。
+
+### YDNT 的解決方案
+**不輕易下「詐騙」判決，只回答可驗證的證據：**
+> 「這位講者宣稱的專業，能否在他所販售的課程之外被獨立證實？」
+
+我們結合 **Multi-agent 協作** 與 **確定性路由代碼**，多軸查證講者的真實網頁足跡、GitHub 開發實績，並在 YouTube 上比對免費替代品的涵蓋度與萃取成本，提供買家一份「證據式（非判決式）」的盡職調查報告，幫助消費者衝動購物時遞上一份理性的總帳。
+
+---
+
+## 2. 系統架構：DAG 資料流
+
+YDNT 採用 ADK 2.0 狀態圖 (Workflow Graph) 設計，確保非確定性的 AI 判斷與確定性的代碼邏輯分離。
+
+```
+          START
+            │
+            ▼
+     [parse_course]       LlmAgent：解析 sales page 為結構化 profile
+            │
+            ▼
+    [security_screen]     @node：防禦銷售頁中的 prompt injection 攻擊
+            │
+            ▼
+      [budget_gate]       @node：確定性路由
+            │
+      ┌─────┴─────┐
+      │           │
+      ▼ (quick)   ▼ (full)
+[quick_verdict]   [instructor_verify] LlmAgent：查證 GitHub/LinkedIn 足跡
+  (純代碼省成本)          │
+                  ▼
+             [free_alt_score]     LlmAgent：尋找 YouTube 免費替代品
+                  │
+                  ▼
+             [verdict_agent]      LlmAgent：執行 rubric 打分，產出 final report
+```
+
+---
+
+## 3. MCP 異質工具鏈與巧妙重用 (Clever Tool Use)
+
+我們設計了本地 FastMCP 服務，將標準的搜尋/抓取 API 巧妙地重新包裝為「盡職調查專用工具」：
+
+| 工具名稱 | 簽名 | 原用途 → YDNT 巧妙重用 |
+|------|------|----------------------|
+| `fetch_sales_page` | `(url_or_case: str) -> str` | 網頁爬取 → **敵對輸入**（結合 security screen 進行防禦） |
+| `search_youtube` | `(query: str) -> list` | 影片搜尋 → **免費替代品搜尋引擎** |
+| `get_youtube_transcript` | `(video_id: str) -> str` | 字幕獲取 → **內容品質 X 光**（計算知識涵蓋度與內容農場指標） |
+| `get_channel_stats` | `(channel_id: str) -> dict` | 頻道統計 → **講者真實性與活躍信號** |
+| `verify_github_user` | `(handle: str) -> dict` | 託管庫查詢 → **講者專業測謊器**（是否有真實開源代碼） |
+| `web_search` | `(query: str) -> list` | 網頁搜尋 → **機構/證書價值驗證** |
+
+---
+
+## 4. 專案目錄結構
 
 ```
 ydnt/
-├── app/         # Core agent code
-│   ├── agent.py               # Main agent logic
-│   ├── agent_runtime_app.py    # Agent Runtime application logic
-│   └── app_utils/             # App utilities and helpers
-├── tests/                     # Unit, integration, and load tests
-├── GEMINI.md                  # AI-assisted development guide
-└── pyproject.toml             # Project dependencies
+├─ README.md                      # 本說明文件
+├─ GEMINI.md                      # 專案指引
+├─ config.py                      # 模型與閾值集中設定檔
+├─ app/
+│  ├─ agent.py                    # ADK 2.0 Workflow DAG 定義
+│  ├─ schemas.py                  # Pydantic 資料契約 (I/O 驗證)
+│  ├─ nodes.py                    # @node 確定性節點 (路由與安全)
+│  ├─ agents_llm.py               # 4 個 LlmAgent 定義 (Programmatic McpToolset)
+│  └─ mcp_server.py               # FastMCP 伺服器 (包含 6 個工具)
+├─ .agents/
+│  ├─ AGENTS.md                   # 永駐規則 (安全/相依/Conventional Commit)
+│  ├─ hooks.json                  # PreToolUse 攔截設定
+│  ├─ scripts/
+│  │  ├─ validate_tool_call.py    # Hook：攔截危險指令與不合格 commit
+│  │  └─ validate_file_write.py   # Hook：防禦反向 import 與硬編碼 API Key
+│  └─ skills/
+│     ├─ course-rubric/           # Level 4 skill：確定性評分
+│     │  ├─ SKILL.md
+│     │  └─ scripts/score.py      # 6+1 軸打分邏輯
+│     ├─ git-workflow/            # Level 3 skill
+│     │  └─ SKILL.md
+│     ├─ code-standards/          # Level 2 skill
+│     │  └─ SKILL.md
+│     └─ testing-strategy/        # Level 2 skill
+│        └─ SKILL.md
+├─ cache/                         # 5 個 demo 案例的預存 Mock 資料
+├─ tests/
+│  └─ eval/
+│     └─ datasets/
+│        └─ basic-dataset.json    # 5 案例 evaluation 資料集
+├─ .semgrep/
+│  └─ rules.yaml                  # 偵測硬編碼金鑰規則
+└─ .pre-commit-config.yaml        # Git commit 前跑 Semgrep
 ```
 
-> 💡 **Tip:** Use [Gemini CLI](https://github.com/google-gemini/gemini-cli) for AI-assisted development - project context is pre-configured in `GEMINI.md`.
+---
 
-## Requirements
+## 5. 本機重現與測試步驟
 
-Before you begin, ensure you have:
-- **uv**: Python package manager (used for all dependency management in this project) - [Install](https://docs.astral.sh/uv/getting-started/installation/) ([add packages](https://docs.astral.sh/uv/concepts/dependencies/) with `uv add <package>`)
-- **agents-cli**: Agents CLI - Install with `uv tool install google-agents-cli`
-- **Google Cloud SDK**: For GCP services - [Install](https://cloud.google.com/sdk/docs/install)
+為了保證 100% 可重現性，專案預設開啟 Mock 模式 (`USE_MOCK=1`)。所有 API 請求將直接走本機快取目錄 `cache/`，不消耗任何 YouTube API 配額，亦不需要配置真實金鑰。
 
-
-## Quick Start
-
-Install `agents-cli` and its skills if not already installed:
-
-```bash
+### 步驟 1：安裝與環境設定
+確保已安裝 `uv`，然後執行：
+```powershell
+# 1. 安裝與設定 CLI 工具
 uvx google-agents-cli setup
-```
 
-Install required packages:
-
-```bash
+# 2. 安裝專案依賴
 agents-cli install
 ```
 
-Test the agent with a local web server:
+### 步驟 2：設定 Mock 環境變數
+```powershell
+# 複製 .env 範本
+Copy-Item .env.example .env
 
+# 在 .env 中設定啟用 Mock（YDNT 預設已開啟此項邏輯，亦可在執行時手動傳入）
+# USE_MOCK=1
+```
+
+### 步驟 3：執行 Evaluation 評估集 (LLM-as-Judge)
+評估集包含 5 個代表性案例（2 個 Mode A 紅旗詐騙、2 個 Mode B 免費替代放行、1 個 Prompt Injection 敵對頁面）：
+```powershell
+$env:USE_MOCK="1"; agents-cli eval run
+```
+**預期結果：**
+- 5/5 案例執行成功，`custom_response_quality` 平均得分達 **5.0/5.0 (Excellent)**。
+- 證明系統對於 Prompt Injection 攻擊有完全免疫能力（ verdict 無受污染），且精準引導低價/低風險課程走 quick verdict 機制節省 Token 成本。
+
+### 步驟 4：本機 playground 視覺化 DAG
+啟動本地網頁控制台查看流程圖：
 ```bash
 agents-cli playground
 ```
 
-You can also use features from the [ADK](https://adk.dev/) CLI with `uv run adk`.
-
-## Commands
-
-| Command              | Description                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| `agents-cli install` | Install dependencies using uv                                                         |
-| `agents-cli playground` | Launch local development environment                                                  |
-| `agents-cli lint`    | Run code quality checks                                                               |
-| `agents-cli eval`    | Evaluate agent behavior (generate, grade, analyze, and more — see `agents-cli eval --help`) |
-| `uv run pytest tests/unit tests/integration` | Run unit and integration tests                                                        |
-| `agents-cli deploy`  | Deploy agent to Agent Runtime                                                                |
-| `agents-cli publish gemini-enterprise` | Register deployed agent to Gemini Enterprise                    |
-
-## 🛠️ Project Management
-
-| Command | What It Does |
-|---------|--------------|
-| `agents-cli scaffold enhance` | Add CI/CD pipelines and Terraform infrastructure |
-| `agents-cli infra cicd` | One-command setup of entire CI/CD pipeline + infrastructure |
-| `agents-cli scaffold upgrade` | Auto-upgrade to latest version while preserving customizations |
-
 ---
 
-## Development
+## 6. 安全防護與開發治理
 
-Edit your agent logic in `app/agent.py` and test with `agents-cli playground` - it auto-reloads on save.
-
-## Deployment
-
-```bash
-gcloud config set project <your-project-id>
-agents-cli deploy
-```
-
-To add CI/CD and Terraform, run `agents-cli scaffold enhance`.
-To set up your production infrastructure, run `agents-cli infra cicd`.
-
-## Observability
-
-Built-in telemetry exports to Cloud Trace, BigQuery, and Cloud Logging.
+YDNT 專案內建嚴格的安全防護網，完全防禦硬編碼 API Key 洩漏：
+1. **Semgrep 掃描**：`.semgrep/rules.yaml` 會阻擋任何格式如 `AIzaSy*` 的假金鑰 commit。
+2. **Pre-commit Hook**：每次 `git commit` 時自動執行 Semgrep。
+3. **PreToolUse Hooks**：我們客製化了 `.agents/hooks.json`，在 AI 助理嘗試 `write_file` 時，自動檢查：
+   - 是否包含硬編碼金鑰。
+   - 是否發生反向 import (例如 schemas 依賴 nodes)。
+   - 是否在非白名單檔案中直接呼叫 `os.getenv`。
