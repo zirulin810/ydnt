@@ -1,0 +1,182 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Deterministic nodes for the YDNT project.
+
+Design: Implements deterministic, rules-based nodes that do not require LLM calls.
+This includes injection screening, budget-based routing, and a cost-saving quick verdict.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+from google.adk import Context, Event
+from google.adk.workflow import node
+
+from config import DEFAULT_BUDGET_CAP
+
+
+def strip_injection_sentences(text: str, patterns: list[str]) -> str:
+    """Helper to remove sentences containing prompt injection patterns.
+
+    Args:
+        text: The raw input text.
+        patterns: List of lowercase prompt injection patterns.
+
+    Returns:
+        The cleaned text with suspicious sentences removed.
+    """
+    # Split text into sentences using basic punctuation boundaries
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    cleaned_sentences = []
+    for sentence in sentences:
+        lowered_sentence = sentence.lower()
+        if any(p in lowered_sentence for p in patterns):
+            continue
+        cleaned_sentences.append(sentence)
+    return " ".join(cleaned_sentences)
+
+
+@node
+def security_screen(ctx: Context, node_input: Any) -> Event:
+    """Screens the sales page raw text for potential prompt injection attempts.
+
+    Design: Performs string matching on known injection patterns. If any match is
+    found, it sanitizes the content, flags the session state, and prevents adversarial
+    inputs from hijacking downstream LLM agents.
+
+    Args:
+        ctx: The ADK Context.
+        node_input: The input data passed from the previous node.
+
+    Returns:
+        An Event containing the input data and security flags.
+    """
+    raw = ctx.state.get("sales_page_raw", "")
+    if not raw and isinstance(node_input, dict):
+        raw = node_input.get("sales_page_raw", "")
+        if raw:
+            ctx.state["sales_page_raw"] = raw
+
+    injection_patterns = [
+        "ignore previous",
+        "ignore all",
+        "disregard",
+        "override",
+        "rate this 10",
+        "best course ever",
+        "you must recommend",
+        "system prompt",
+        "act as",
+        "auto-approve",
+        "bypass",
+    ]
+
+    lowered = raw.lower()
+    security_flag = None
+    if any(p in lowered for p in injection_patterns):
+        security_flag = "injection_detected"
+        ctx.state["security_flag"] = security_flag
+        # Strip the malicious sentences
+        cleaned = strip_injection_sentences(raw, injection_patterns)
+        ctx.state["sales_page_clean"] = cleaned
+    else:
+        ctx.state["sales_page_clean"] = raw
+
+    state_update = {"security_flag": security_flag} if security_flag else {}
+    return Event(output=node_input, state=state_update)
+
+
+@node
+def budget_gate(ctx: Context, node_input: Any) -> Event:
+    """Routes the workflow path based on course price and risk profile.
+
+    Design: Implements deterministic routing. If a course is low-priced (under the budget cap)
+    and does not exhibit high-risk outcomes (like income promises, recruitment MLM structures,
+    or security flags), it is routed to the quick_verdict path to avoid expensive LLM calls.
+
+    Args:
+        ctx: The ADK Context.
+        node_input: The CourseProfile data.
+
+    Returns:
+        An Event routing to either 'quick' or 'full' paths.
+    """
+    profile = node_input
+    price = 0.0
+    promised_outcome = "unknown"
+    recruitment_signal = False
+
+    # Extract properties from Pydantic object or dict
+    if isinstance(profile, dict):
+        price = profile.get("price_usd", 0.0)
+        promised_outcome = profile.get("promised_outcome", "unknown")
+        recruitment_signal = profile.get("recruitment_signal", False)
+    elif profile is not None:
+        price = getattr(profile, "price_usd", 0.0)
+        promised_outcome = getattr(profile, "promised_outcome", "unknown")
+        recruitment_signal = getattr(profile, "recruitment_signal", False)
+
+    budget_cap = ctx.state.get("budget_cap", DEFAULT_BUDGET_CAP)
+    security_flag = ctx.state.get("security_flag")
+
+    # High-risk checks: promising income, MLM recruitment, or injection detected
+    low_risk = (
+        promised_outcome != "income"
+        and not recruitment_signal
+        and security_flag is None
+    )
+
+    route = "quick" if (price < budget_cap and low_risk) else "full"
+    return Event(output=node_input, route=route)
+
+
+@node
+def quick_verdict(ctx: Context, node_input: Any) -> Event:
+    """Generates a fast due diligence verdict without calling LLM agents.
+
+    Design: For low-risk, low-cost courses, we immediately output a verdict of B_need_not
+    (need not buy) or worth_buying, noting that it is low-priced, saving API costs.
+
+    Args:
+        ctx: The ADK Context.
+        node_input: The CourseProfile data.
+
+    Returns:
+        An Event containing the Verdict dict.
+    """
+    profile = node_input
+    title = "Unknown Course"
+    price = 0.0
+
+    if isinstance(profile, dict):
+        title = profile.get("title", "Unknown Course")
+        price = profile.get("price_usd", 0.0)
+    elif profile is not None:
+        title = getattr(profile, "title", "Unknown Course")
+        price = getattr(profile, "price_usd", 0.0)
+
+    verdict = {
+        "mode": "B_need_not",
+        "red_flags": [],
+        "green_flags": ["Low price under budget cap"],
+        "money_vs_time": f"Course price (${price}) is below your budget cap. No full due diligence required.",
+        "conclusion": f"The course '{title}' is low-cost and low-risk. No further action needed.",
+        "confidence": "high",
+    }
+
+    ctx.state["verdict"] = verdict
+    return Event(output=verdict)
