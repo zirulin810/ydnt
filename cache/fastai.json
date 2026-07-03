@@ -1,0 +1,43 @@
+{
+  "sales_page_raw": "Practical Deep Learning for Coders by Jeremy Howard. Learn PyTorch and deep learning. Price: $0 (completely free). Syllabus covers neural networks, computer vision, NLP, and collaborative filtering.",
+  "youtube_search": [
+    {
+      "title": "Practical Deep Learning for Coders course playlist",
+      "video_id": "fastai_vid_1",
+      "channel_title": "fast.ai",
+      "channel_id": "fastai_channel",
+      "description": "Full deep learning course covering PyTorch and fast.ai library.",
+      "url": "https://www.youtube.com/watch?v=fastai_vid_1"
+    }
+  ],
+  "transcripts": {
+    "fastai_vid_1": "Welcome to Practical Deep Learning for Coders. This is lesson 1. We will build an image classifier. The notebooks are available on Kaggle and GitHub for free."
+  },
+  "channel_stats": {
+    "channel_id": "fastai_channel",
+    "subscriber_count": "180000",
+    "video_count": "89",
+    "view_count": "4500000"
+  },
+  "github_user": {
+    "handle": "jhoward",
+    "exists": true,
+    "public_repos": 45,
+    "followers": 15000,
+    "has_real_work": true,
+    "repos": [
+      {
+        "name": "fastai",
+        "stars": 24000,
+        "fork": false
+      }
+    ]
+  },
+  "web_search": [
+    {
+      "title": "Jeremy Howard - fast.ai Founder and Kaggle Grandmaster",
+      "snippet": "Jeremy Howard is a researcher, developer, and founder of fast.ai, formerly President and Chief Scientist at Kaggle.",
+      "url": "https://www.fast.ai/about"
+    }
+  ]
+}

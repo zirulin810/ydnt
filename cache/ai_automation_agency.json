@@ -1,0 +1,36 @@
+{
+  "sales_page_raw": "AI Automation Agency: Make $200,000/month in passive income using AI tools. Launch your agency in 24 hours. Price increases tonight! No coding required. Learn the secret template to copy-paste. Only 5 spots left!",
+  "youtube_search": [
+    {
+      "title": "Exposing the AI Automation Agency scam",
+      "video_id": "agency_vid_1",
+      "channel_title": "Agency Exposed",
+      "channel_id": "agency_exposed_channel",
+      "description": "Reviews of people who spent $5000 on AI agency courses.",
+      "url": "https://www.youtube.com/watch?v=agency_vid_1"
+    }
+  ],
+  "transcripts": {
+    "agency_vid_1": "This video shows that AI Automation Agency courses promise $200k/month but real buyers lose their savings. Standard template courses do not work in the real market."
+  },
+  "channel_stats": {
+    "channel_id": "agency_exposed_channel",
+    "subscriber_count": "80000",
+    "video_count": "54",
+    "view_count": "2000000"
+  },
+  "github_user": {
+    "handle": "aiagencyguru",
+    "exists": false,
+    "public_repos": 0,
+    "followers": 0,
+    "has_real_work": false
+  },
+  "web_search": [
+    {
+      "title": "FTC Operation AI Comply shuts down AI agency courses",
+      "snippet": "FTC has shut down several high-profile AI agency courses promising passive income for deceiving consumers.",
+      "url": "https://www.ftc.gov/news/operation-ai-comply"
+    }
+  ]
+}

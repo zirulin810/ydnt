@@ -1,0 +1,36 @@
+{
+  "sales_page_raw": "Welcome to Skool Games! Learn how to make $10,000/month by starting your own online community and selling your own courses. Limited seats available, price increases in 2 hours! Become a certified Skool Game Coach and earn 40% monthly recurring commissions by recruiting new students to our platform.",
+  "youtube_search": [
+    {
+      "title": "Why Skool Games is a pyramid scheme",
+      "video_id": "skool_vid_1",
+      "channel_title": "Anti-MLM Investigator",
+      "channel_id": "anti_mlm_channel",
+      "description": "An in-depth review of Skool Games monetization model.",
+      "url": "https://www.youtube.com/watch?v=skool_vid_1"
+    }
+  ],
+  "transcripts": {
+    "skool_vid_1": "In this video we analyze Skool Games. It is a recurring commission pyramid structure. Most creators make money by selling courses on how to make money. It is recursive and low value."
+  },
+  "channel_stats": {
+    "channel_id": "anti_mlm_channel",
+    "subscriber_count": "150000",
+    "video_count": "320",
+    "view_count": "12000000"
+  },
+  "github_user": {
+    "handle": "skoolgamecreator",
+    "exists": true,
+    "public_repos": 0,
+    "followers": 1,
+    "has_real_work": false
+  },
+  "web_search": [
+    {
+      "title": "Skool Games MLM Reviews",
+      "snippet": "Many users report that Skool Games focuses on selling the platform itself rather than actual business skills.",
+      "url": "https://www.reviews.com/skool-games"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "sales_page_raw": "Machine Learning Specialization by Andrew Ng. Master AI and ML fundamentals. Price: $49/month or free via audit mode. Syllabus covers linear regression, neural networks, decision trees, and unsupervised learning.",
+  "youtube_search": [
+    {
+      "title": "Andrew Ng Stanford ML Lectures Playlist",
+      "video_id": "ng_vid_1",
+      "channel_title": "Stanford Online",
+      "channel_id": "stanford_channel",
+      "description": "Full lecture series of Andrew Ng Machine Learning CS229.",
+      "url": "https://www.youtube.com/watch?v=ng_vid_1"
+    }
+  ],
+  "transcripts": {
+    "ng_vid_1": "Welcome to CS229. Today we cover supervised learning, cost function, and gradient descent. This is a fully structured course syllabus with notebooks and exercises."
+  },
+  "channel_stats": {
+    "channel_id": "stanford_channel",
+    "subscriber_count": "1200000",
+    "video_count": "1500",
+    "view_count": "80000000"
+  },
+  "github_user": {
+    "handle": "andrewng",
+    "exists": true,
+    "public_repos": 15,
+    "followers": 12000,
+    "has_real_work": true,
+    "repos": [
+      {
+        "name": "coursera-ml-specialization",
+        "stars": 540,
+        "fork": false
+      }
+    ]
+  },
+  "web_search": [
+    {
+      "title": "Andrew Ng - Stanford Faculty Profile",
+      "snippet": "Andrew Ng is an Adjunct Professor at Stanford University and co-founder of Coursera and DeepLearning.AI.",
+      "url": "https://profiles.stanford.edu/andrew-ng"
+    }
+  ]
+}
