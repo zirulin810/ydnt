@@ -20,8 +20,20 @@ Tracks the complete execution flow from sales page ingestion to the final verdic
 
 from __future__ import annotations
 
+import os
+import google.auth
+
+# Initialize Google Cloud / Vertex AI environment variables
+try:
+    _, project_id = google.auth.default()
+    os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+    os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
+    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
+except Exception:
+    pass
+
 from google.adk.apps import App
-from google.adk.workflow import Edge, Workflow
+from google.adk.workflow import Edge, Workflow, START
 
 from app.agents_llm import free_alt_score, instructor_verify, parse_course, verdict_agent
 from app.nodes import budget_gate, quick_verdict, security_screen
@@ -33,7 +45,7 @@ root_agent = Workflow(
     name="ydnt_due_diligence",
     edges=[
         # Phase 1: Input ingestion, cleaning, and gate routing
-        Edge(from_node="START", to_node=parse_course),
+        Edge(from_node=START, to_node=parse_course),
         Edge(from_node=parse_course, to_node=security_screen),
         Edge(from_node=security_screen, to_node=budget_gate),
         # Path A: Fast, cost-saving path for low-cost, low-risk courses
