@@ -1,17 +1,38 @@
 {
   "eval_cases": [
     {
-      "eval_case_id": "greeting",
+      "eval_case_id": "skool_games",
       "prompt": {
         "role": "user",
-        "parts": [{"text": "Hello, what can you help me with?"}]
+        "parts": [{"text": "Analyze the course Skool Games, price is 99 USD, budget cap is 50."}]
       }
     },
     {
-      "eval_case_id": "weather_query",
+      "eval_case_id": "ai_automation_agency",
       "prompt": {
         "role": "user",
-        "parts": [{"text": "What's the weather like in San Francisco?"}]
+        "parts": [{"text": "Analyze the course AI Automation Agency, price is 5000 USD, budget cap is 100."}]
+      }
+    },
+    {
+      "eval_case_id": "andrew_ng_ml",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Analyze the course Andrew Ng ML, price is 49 USD, budget cap is 100."}]
+      }
+    },
+    {
+      "eval_case_id": "fastai",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Analyze the course fast.ai, price is 0 USD, budget cap is 50."}]
+      }
+    },
+    {
+      "eval_case_id": "injection_case",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Analyze the course injection, price is 299 USD, budget cap is 100."}]
       }
     }
   ]
