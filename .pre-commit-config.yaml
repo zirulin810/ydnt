@@ -1,0 +1,9 @@
+# pre-commit configurations for YDNT project
+repos:
+  - repo: local
+    hooks:
+      - id: semgrep
+        name: Semgrep Security Scan
+        entry: semgrep --error --config .semgrep/rules.yaml
+        language: system
+        pass_filenames: false

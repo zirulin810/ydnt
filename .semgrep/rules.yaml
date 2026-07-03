@@ -1,0 +1,13 @@
+rules:
+  - id: hardcoded-api-key
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $KEY = "AIzaSy$CHAR"
+          - pattern: |
+              api_key = "AIzaSy$CHAR"
+          - pattern: |
+              api_key = 'AIzaSy$CHAR'
+    message: "Hardcoded API key detected! Remove the key and read it from the environment instead."
+    languages: [python]
+    severity: ERROR

@@ -1,0 +1,14 @@
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "tool": "run_command",
+      "script": ".agents/scripts/validate_tool_call.py"
+    },
+    {
+      "event": "PreToolUse",
+      "tool": "write_file",
+      "script": ".agents/scripts/validate_file_write.py"
+    }
+  ]
+}
