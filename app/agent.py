@@ -1,4 +1,3 @@
-# ruff: noqa
 # Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,69 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import datetime
-from zoneinfo import ZoneInfo
-from dotenv import load_dotenv
+"""Workflow definition for the YDNT due diligence agent.
 
-load_dotenv()
+Design: Assembles the ADK 2.0 Workflow DAG using deterministic nodes and LLM agents.
+Tracks the complete execution flow from sales page ingestion to the final verdict.
+"""
 
-from google.adk.agents import Agent
+from __future__ import annotations
+
 from google.adk.apps import App
-from google.adk.models import Gemini
-from google.genai import types
+from google.adk.workflow import Edge, Workflow
 
-import os
-import google.auth
+from app.agents_llm import free_alt_score, instructor_verify, parse_course, verdict_agent
+from app.nodes import budget_gate, quick_verdict, security_screen
 
-_, project_id = google.auth.default()
-os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
-os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
-os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
-
-
-def get_weather(query: str) -> str:
-    """Simulates a web search. Use it get information on weather.
-
-    Args:
-        query: A string containing the location to get weather information for.
-
-    Returns:
-        A string with the simulated weather information for the queried location.
-    """
-    if "sf" in query.lower() or "san francisco" in query.lower():
-        return "It's 60 degrees and foggy."
-    return "It's 90 degrees and sunny."
-
-
-def get_current_time(query: str) -> str:
-    """Simulates getting the current time for a city.
-
-    Args:
-        city: The name of the city to get the current time for.
-
-    Returns:
-        A string with the current time information.
-    """
-    if "sf" in query.lower() or "san francisco" in query.lower():
-        tz_identifier = "America/Los_Angeles"
-    else:
-        return f"Sorry, I don't have timezone information for query: {query}."
-
-    tz = ZoneInfo(tz_identifier)
-    now = datetime.datetime.now(tz)
-    return f"The current time for query {query} is {now.strftime('%Y-%m-%d %H:%M:%S %Z%z')}"
-
-
-root_agent = Agent(
-    name="root_agent",
-    model=Gemini(
-        model="gemini-2.5-flash",
-        retry_options=types.HttpRetryOptions(attempts=3),
-    ),
-    instruction="You are a helpful AI assistant designed to provide accurate and useful information.",
-    tools=[get_weather, get_current_time],
+# ---------------------------------------------------------------------------
+# Workflow DAG Definition
+# ---------------------------------------------------------------------------
+root_agent = Workflow(
+    name="ydnt_due_diligence",
+    edges=[
+        # Phase 1: Input ingestion, cleaning, and gate routing
+        Edge(from_node="START", to_node=parse_course),
+        Edge(from_node=parse_course, to_node=security_screen),
+        Edge(from_node=security_screen, to_node=budget_gate),
+        # Path A: Fast, cost-saving path for low-cost, low-risk courses
+        Edge(from_node=budget_gate, to_node=quick_verdict, route="quick"),
+        # Path B: Full analysis path for high-cost or high-risk courses
+        Edge(from_node=budget_gate, to_node=instructor_verify, route="full"),
+        Edge(from_node=instructor_verify, to_node=free_alt_score),
+        Edge(from_node=free_alt_score, to_node=verdict_agent),
+    ],
 )
 
+# App instance exposed for agents-cli CLI tools
 app = App(
     root_agent=root_agent,
     name="app",
