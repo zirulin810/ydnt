@@ -199,15 +199,7 @@ def score_alt_content(free_alt: dict[str, Any]) -> tuple[int, list[Reason]]:
 
     score = max(1, min(5, score))
 
-    reasons = []
-    if any_content_farm:
-        reasons.append(Reason("red", "Content Farm: Free alternatives are bloated or low-quality."))
-    if best_coverage < 60:
-        reasons.append(Reason("red", f"Low Free Coverage: Free alternatives cover only {best_coverage}%."))
-    elif high_extraction_cost:
-        reasons.append(Reason("red", "High Extraction Cost: Free alternatives are unstructured/messy."))
-
-    return score, reasons
+    return score, []
 
 
 def score_alt_creator(free_alt: dict[str, Any]) -> tuple[int, list[Reason]]:

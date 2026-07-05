@@ -187,6 +187,7 @@ def test_score_alt_content() -> None:
     }
     score, reasons = score_alt_content(good_alt)
     assert score == 5
+    assert reasons == []
 
     # Low coverage
     poor_alt = {
@@ -195,6 +196,7 @@ def test_score_alt_content() -> None:
     }
     score, reasons = score_alt_content(poor_alt)
     assert score == 1
+    assert reasons == []
 
     # Content farm flag penalty
     farm_alt = {
@@ -203,6 +205,7 @@ def test_score_alt_content() -> None:
     }
     score, reasons = score_alt_content(farm_alt)
     assert score <= 3
+    assert reasons == []
 
 
 def test_score_alt_creator() -> None:
