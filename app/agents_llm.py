@@ -26,7 +26,6 @@ from google.genai import types
 
 from app.mcp_server import (
     get_channel_stats,
-    get_youtube_transcript,
     search_youtube,
     verify_github_user,
     web_search,
@@ -113,11 +112,11 @@ creator_verify = LlmAgent(
         "Use the provided tools to investigate:\n"
         "- GitHub footprint using verify_github_user.\n"
         "- Verifiable employment, company history, or organization credibility using web_search.\n"
-        "- YouTube presence using get_channel_stats or transcripts using get_youtube_transcript.\n"
+        "- YouTube presence using get_channel_stats.\n"
         "\n"
         "Synthesize your findings and output a structured CreatorEvidence report."
     ),
-    tools=[verify_github_user, get_channel_stats, get_youtube_transcript, web_search],
+    tools=[verify_github_user, get_channel_stats, web_search],
     output_schema=CreatorEvidence,
     output_key="creator_evidence",
 )
@@ -134,15 +133,21 @@ free_alt_score = LlmAgent(
     instruction=(
         "You are a resource cataloger. Your task is to find free alternative learning materials (specifically YouTube "
         "videos, channels, or playlists) that cover the course's syllabus.\n"
-        "Use YouTube search tools (search_youtube) to find matching content, evaluate their transcripts/captions "
-        "using get_youtube_transcript, and determine:\n"
-        "- The coverage percentage of the syllabus\n"
-        "- The extraction cost (how structured and high-density the free alternative is. Low cost means structured/well-paced, "
-        "high cost means unstructured content farm/bloated noise)\n"
-        "- Whether the alternative shows signs of low-quality content farming (AI voiceovers, no real hands-on demo, low value)\n"
+        "Use YouTube search tools (search_youtube) to find matching content, evaluate their credibility and "
+        "characteristics using search metadata and get_channel_stats, and determine:\n"
+        "- The coverage percentage of the syllabus: assess this by matching the video titles, descriptions, and "
+        "channel context against the syllabus topics. If the course syllabus is empty, search YouTube using the "
+        "course title (do not skip searching).\n"
+        "- The content creator's credibility and content farm flags using get_channel_stats: check the channel "
+        "statistics (subscribers, video count, view count). A channel with an extremely high video count but very "
+        "low subscribers or view counts suggests low-quality automated content farming (content_farm_flag = True). "
+        "A channel with solid subscribers and views shows real engagement and credibility.\n"
+        "- The extraction cost: judge from the structure, organization, and clarity of the titles/descriptions. "
+        "Low cost means highly structured/well-paced playlists or guides, and high cost means disorganized or "
+        "noisy single videos.\n"
         "Compile this into a structured FreeAlternatives list."
     ),
-    tools=[search_youtube, get_youtube_transcript],
+    tools=[search_youtube, get_channel_stats],
     output_schema=FreeAlternatives,
     output_key="free_alternatives",
 )
