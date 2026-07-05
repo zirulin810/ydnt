@@ -43,13 +43,50 @@ def strip_injection_sentences(text: str, patterns: list[str]) -> str:
 
 
 @node
+def fetch_page_node(ctx: Context, node_input: Any) -> Event:
+    """Fetches the course sales page raw text and stores it in context.
+
+    Design: Deterministic node that calls fetch_sales_page to fetch page content.
+    """
+    url_or_case = ""
+    if isinstance(node_input, dict):
+        url_or_case = node_input.get("url_or_case") or node_input.get("url") or ""
+    elif isinstance(node_input, str):
+        url_or_case = node_input
+    elif hasattr(node_input, "parts") and node_input.parts:
+        parts_text = []
+        for part in node_input.parts:
+            if hasattr(part, "text") and part.text:
+                parts_text.append(part.text)
+        url_or_case = " ".join(parts_text).strip()
+    elif hasattr(node_input, "text") and getattr(node_input, "text"):
+        url_or_case = str(node_input.text).strip()
+
+    if not url_or_case:
+        url_or_case = ctx.state.get("url_or_case") or ctx.state.get("url") or ""
+
+    if not url_or_case:
+        raise ValueError("fetch_page_node requires a valid URL or case name as input.")
+
+    from app.mcp_server import fetch_sales_page
+
+    raw_text = fetch_sales_page(url_or_case)
+    ctx.state["sales_page_raw"] = raw_text
+    return Event(output=raw_text)
+
+
+@node
 def security_screen(ctx: Context, node_input: Any) -> Event:
     """Screens the sales page raw text for potential prompt injection attempts."""
     raw = ctx.state.get("sales_page_raw", "")
-    if not raw and isinstance(node_input, dict):
-        raw = node_input.get("sales_page_raw", "")
-        if raw:
-            ctx.state["sales_page_raw"] = raw
+    if not raw:
+        if isinstance(node_input, str):
+            raw = node_input
+        elif isinstance(node_input, dict):
+            raw = node_input.get("sales_page_raw", "")
+
+    if not raw:
+        raw = ""
 
     injection_patterns = [
         "ignore previous",
@@ -77,7 +114,7 @@ def security_screen(ctx: Context, node_input: Any) -> Event:
         ctx.state["sales_page_clean"] = raw
 
     state_update = {"security_flag": security_flag} if security_flag else {}
-    return Event(output=node_input, state=state_update)
+    return Event(output=ctx.state["sales_page_clean"], state=state_update)
 
 
 @node
