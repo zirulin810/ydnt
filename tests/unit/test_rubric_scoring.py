@@ -107,7 +107,7 @@ def test_scenario_1_mlm_recruitment() -> None:
     """Scenario 1: MLM Recruitment.
 
     A course with recruitment signals (recruiting students as resellers/coaches)
-    must lead to 'A_should_not' mode and have the MLM recruitment red flag.
+    must lead to 'should_not' mode and have the MLM recruitment red flag.
     """
     profile = default_course_profile(recruitment_signal=True)
     instructor = default_instructor_evidence()
@@ -115,7 +115,7 @@ def test_scenario_1_mlm_recruitment() -> None:
 
     result = run_node(profile, instructor, free_alt)
 
-    assert result["mode"] == "A_should_not"
+    assert result["mode"] == "should_not"
     assert any("MLM" in flag for flag in result["red_flags"])
 
 
@@ -123,7 +123,7 @@ def test_scenario_2_recursive_monetization() -> None:
     """Scenario 2: Recursive Monetization.
 
     A course promising income whose syllabus focuses on audience monetization,
-    selling courses, or building followers must lead to 'A_should_not' mode.
+    selling courses, or building followers must lead to 'should_not' mode.
     """
     profile = default_course_profile(
         promised_outcome="income",
@@ -134,7 +134,7 @@ def test_scenario_2_recursive_monetization() -> None:
 
     result = run_node(profile, instructor, free_alt)
 
-    assert result["mode"] == "A_should_not"
+    assert result["mode"] == "should_not"
     assert any("Recursive" in flag for flag in result["red_flags"])
 
 
@@ -142,7 +142,7 @@ def test_scenario_3_income_promise_with_scarcity() -> None:
     """Scenario 3: Income Promise + Scarcity Manipulation.
 
     A course promising income combined with scarcity marketing signals
-    must lead to 'A_should_not' mode.
+    must lead to 'should_not' mode.
     """
     profile = default_course_profile(
         promised_outcome="income",
@@ -153,7 +153,7 @@ def test_scenario_3_income_promise_with_scarcity() -> None:
 
     result = run_node(profile, instructor, free_alt)
 
-    assert result["mode"] == "A_should_not"
+    assert result["mode"] == "should_not"
     assert any("Scarcity" in flag for flag in result["red_flags"])
     assert any("Income" in flag for flag in result["red_flags"])
 
@@ -162,7 +162,7 @@ def test_scenario_4_high_free_coverage() -> None:
     """Scenario 4: High Free Coverage.
 
     A skill course where high-quality (non content farm) free alternatives cover
-    70%+ of the syllabus with low extraction cost must lead to 'B_need_not' mode.
+    70%+ of the syllabus with low extraction cost must lead to 'need_not' mode.
     """
     profile = default_course_profile(promised_outcome="skill")
     instructor = default_instructor_evidence(footprint="medium")
@@ -181,7 +181,7 @@ def test_scenario_4_high_free_coverage() -> None:
 
     result = run_node(profile, instructor, free_alt)
 
-    assert result["mode"] == "B_need_not"
+    assert result["mode"] == "need_not"
 
 
 def test_scenario_5_strong_footprint_low_coverage_high_extraction() -> None:
@@ -276,4 +276,4 @@ def test_scenario_8_boundary_empty_evidences() -> None:
 
     result = run_node(profile, instructor, free_alt)
 
-    assert result["mode"] == "B_need_not"
+    assert result["mode"] == "need_not"

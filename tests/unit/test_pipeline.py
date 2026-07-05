@@ -106,7 +106,7 @@ def test_finalize_verdict_success() -> None:
     from app.nodes import finalize_verdict
 
     verdict_data = {
-        "mode": "B_need_not",
+        "mode": "need_not",
         "red_flags": [],
         "green_flags": [],
         "money_vs_time": "time is better",
@@ -146,7 +146,7 @@ def test_finalize_verdict_empty() -> None:
     from app.nodes import finalize_verdict
 
     verdict_data = {
-        "mode": "B_need_not",
+        "mode": "need_not",
         "red_flags": [],
         "green_flags": [],
         "money_vs_time": "time is better",

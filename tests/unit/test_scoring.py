@@ -235,28 +235,28 @@ def test_decide_mode_scores_only() -> None:
     # 1. content_score == 1 -> should_not
     scores = {"content_score": 1, "instructor_score": 5, "alt_content_score": 2}
     mode, red_flags, green_flags = decide_mode(scores, {})
-    assert mode == "A_should_not"
+    assert mode == "should_not"
 
     # 2. worth_buying (content_score >= 3, instructor_score >= 4, alt_content_score <= content_score)
     scores = {"content_score": 3, "instructor_score": 4, "alt_content_score": 2}
     mode, red_flags, green_flags = decide_mode(scores, {})
     assert mode == "worth_buying"
 
-    # 3. B_need_not (otherwise)
+    # 3. need_not (otherwise)
     # E.g. content_score too low (< 3)
     scores = {"content_score": 2, "instructor_score": 5, "alt_content_score": 2}
     mode, red_flags, green_flags = decide_mode(scores, {})
-    assert mode == "B_need_not"
+    assert mode == "need_not"
 
     # E.g. instructor_score too low (< 4)
     scores = {"content_score": 4, "instructor_score": 3, "alt_content_score": 2}
     mode, red_flags, green_flags = decide_mode(scores, {})
-    assert mode == "B_need_not"
+    assert mode == "need_not"
 
     # E.g. alt_content_score > content_score (free alternatives coverage outweighs course quality)
     scores = {"content_score": 3, "instructor_score": 5, "alt_content_score": 4}
     mode, red_flags, green_flags = decide_mode(scores, {})
-    assert mode == "B_need_not"
+    assert mode == "need_not"
 
 
 def test_decide_mode_veto_flags() -> None:
@@ -273,7 +273,7 @@ def test_decide_mode_veto_flags() -> None:
         ]
     }
     mode, red_flags, green_flags = decide_mode(scores, reasons)
-    assert mode == "A_should_not"
+    assert mode == "should_not"
     assert len(red_flags) == 1
     assert "Manipulation" in red_flags[0]
     assert green_flags == []

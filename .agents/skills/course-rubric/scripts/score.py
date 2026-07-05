@@ -143,15 +143,15 @@ def main():
     # ---------------------------------------------------------------------------
     # Mode A: Deceptive/MLM/Deceptive scarcity
     if is_recursive or recruitment_signal or (promised_outcome == "income" and scarcity_signals):
-        mode = "A_should_not"
+        mode = "should_not"
     # Mode B: Good free alternatives available
     elif best_coverage_pct >= 70 and not high_extraction_cost and not any_content_farm:
-        mode = "B_need_not"
+        mode = "need_not"
     # Worth Buying: High credential, low-priced, messy alternatives
     elif footprint in ["strong", "medium"] and best_coverage_pct < 80 and high_extraction_cost:
         mode = "worth_buying"
     else:
-        mode = "B_need_not"  # Default fallback
+        mode = "need_not"  # Default fallback
 
     # Money vs. Time comparison explanation
     if high_extraction_cost:
@@ -175,10 +175,10 @@ def main():
             "Based on structural due diligence: "
             + (
                 "Do not purchase. The course has severe marketing red flags or MLM structures."
-                if mode == "A_should_not"
+                if mode == "should_not"
                 else (
                     "Do not purchase. High-quality free alternatives cover this content with low extraction cost."
-                    if mode == "B_need_not"
+                    if mode == "need_not"
                     else "Recommended purchase. The course saves significant time compared to messy free alternatives."
                 )
             )

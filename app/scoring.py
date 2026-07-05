@@ -240,11 +240,11 @@ def decide_mode(
 
     # mode:與現在完全相同的分數判定(不變)
     if content_score == 1:
-        mode = "A_should_not"
+        mode = "should_not"
     elif content_score >= 3 and instructor_score >= 4 and alt_content_score <= content_score:
         mode = "worth_buying"
     else:
-        mode = "B_need_not"
+        mode = "need_not"
 
     # flags:veto 時只取 content 的 red 理由;否則匯集所有理由
     if content_score == 1:
