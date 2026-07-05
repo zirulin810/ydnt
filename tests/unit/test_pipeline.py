@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from app.nodes import fetch_page_node, security_screen
+from app.nodes import fetch_page_node, insufficient_verdict, security_screen
 
 
 class MockContext:
@@ -36,6 +36,35 @@ def test_fetch_page_node_mock(monkeypatch) -> None:
     assert ctx.state["sales_page_raw"]
     assert isinstance(ctx.state["sales_page_raw"], str)
     assert event.output == ctx.state["sales_page_raw"]
+    assert event.actions.route == "ok"
+
+
+def test_fetch_page_node_failure(monkeypatch) -> None:
+    """Tests fetch_page_node in mock mode with an unknown case, triggering failure routing."""
+    monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
+    ctx = MockContext()
+
+    event = fetch_page_node._func(ctx, "non_existent_case_keyword_12345")
+
+    assert event.actions.route == "insufficient"
+    assert ctx.state["insufficient_reason"]
+    assert "No mock case found" in ctx.state["insufficient_reason"]
+
+
+def test_insufficient_verdict_node() -> None:
+    """Tests insufficient_verdict node outputs correct schema structures without fabricated scores."""
+    ctx = MockContext(state={"insufficient_reason": "Mock fetch error details"})
+
+    event = insufficient_verdict._func(ctx, None)
+    output = event.output
+
+    assert output["mode"] == "insufficient"
+    assert output["red_flags"] == []
+    assert output["green_flags"] == []
+    assert "Mock fetch error details" in output["conclusion"]
+    assert "Mock fetch error details" in output["money_vs_time"]
+    assert output["confidence"] == "low"
+    assert ctx.state["verdict"] == output
 
 
 def test_security_screen_injection() -> None:
@@ -82,6 +111,7 @@ def test_nodes_chaining_injection(monkeypatch) -> None:
     # 1. Fetch
     fetch_event = fetch_page_node._func(ctx, "分析 injection 案例")
     assert ctx.state["sales_page_raw"]
+    assert fetch_event.actions.route == "ok"
 
     # 2. Screen
     screen_event = security_screen._func(ctx, fetch_event.output)

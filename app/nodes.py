@@ -47,10 +47,16 @@ def fetch_page_node(ctx: Context, node_input: Any) -> Event:
     """Fetches the course sales page raw text and stores it in context.
 
     Design: Deterministic node that calls fetch_sales_page to fetch page content.
+    If fetching fails or is missing, routes to insufficient verdict.
     """
     url_or_case = ""
     if isinstance(node_input, dict):
-        url_or_case = node_input.get("url_or_case") or node_input.get("url") or ""
+        url_or_case = (
+            node_input.get("url_or_case")
+            or node_input.get("url")
+            or node_input.get("text")
+            or ""
+        )
     elif isinstance(node_input, str):
         url_or_case = node_input
     elif hasattr(node_input, "parts") and node_input.parts:
@@ -59,20 +65,56 @@ def fetch_page_node(ctx: Context, node_input: Any) -> Event:
             if hasattr(part, "text") and part.text:
                 parts_text.append(part.text)
         url_or_case = " ".join(parts_text).strip()
-    elif hasattr(node_input, "text") and getattr(node_input, "text"):
+    elif hasattr(node_input, "text") and node_input.text:
         url_or_case = str(node_input.text).strip()
 
     if not url_or_case:
         url_or_case = ctx.state.get("url_or_case") or ctx.state.get("url") or ""
 
     if not url_or_case:
-        raise ValueError("fetch_page_node requires a valid URL or case name as input.")
+        ctx.state["insufficient_reason"] = (
+            "fetch_page_node requires a valid URL or case name as input."
+        )
+        return Event(route="insufficient")
 
     from app.mcp_server import fetch_sales_page
 
-    raw_text = fetch_sales_page(url_or_case)
+    try:
+        raw_text = fetch_sales_page(url_or_case)
+        if not raw_text:
+            raise ValueError("Sales page content is empty.")
+    except Exception as e:
+        ctx.state["insufficient_reason"] = str(e)
+        return Event(route="insufficient")
+
     ctx.state["sales_page_raw"] = raw_text
-    return Event(output=raw_text)
+    return Event(output=raw_text, route="ok")
+
+
+@node
+def insufficient_verdict(ctx: Context, node_input: Any) -> Event:
+    """Generates an honest 'insufficient' due diligence verdict when the page is unreachable.
+
+    Design: Complies with fail-loud and code integrity rules. Does not invent any scores.
+    """
+    reason = ctx.state.get("insufficient_reason", "Unknown reason")
+    conclusion_text = f"Due diligence could not be performed because the sales page was unreachable: {reason}"
+    verdict = {
+        "mode": "insufficient",
+        "red_flags": [],
+        "green_flags": [],
+        "money_vs_time": f"Cannot compare time/money since the sales page was unreachable ({reason}).",
+        "conclusion": conclusion_text,
+        "confidence": "low",
+    }
+    ctx.state["verdict"] = verdict
+
+    from google.genai import types
+
+    content = types.Content(
+        role="model", parts=[types.Part.from_text(text=conclusion_text)]
+    )
+    return Event(output=verdict, content=content)
 
 
 @node

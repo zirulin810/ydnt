@@ -45,6 +45,7 @@ from app.agents_llm import (
 from app.nodes import (
     budget_gate,
     fetch_page_node,
+    insufficient_verdict,
     quick_verdict,
     rubric_scoring_node,
     security_screen,
@@ -58,7 +59,12 @@ root_agent = Workflow(
     edges=[
         # Phase 1: Input ingestion, cleaning, and gate routing
         Edge(from_node=START, to_node=fetch_page_node),
-        Edge(from_node=fetch_page_node, to_node=security_screen),
+        Edge(from_node=fetch_page_node, to_node=security_screen, route="ok"),
+        Edge(
+            from_node=fetch_page_node,
+            to_node=insufficient_verdict,
+            route="insufficient",
+        ),
         Edge(from_node=security_screen, to_node=parse_course),
         Edge(from_node=parse_course, to_node=budget_gate),
         # Path A: Fast, cost-saving path for low-cost, low-risk courses
