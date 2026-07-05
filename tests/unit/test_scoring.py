@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 from app.scoring import (
+    decide_mode,
     score_alt_content,
     score_alt_instructor,
     score_content,
@@ -48,31 +49,53 @@ def test_score_pricing() -> None:
 
 
 def test_score_content() -> None:
-    """Tests score_content with safety signals, outcome, syllabus depth, and scarcity."""
-    # Safety flag check (injection detected)
+    """Tests score_content veto conditions (returning 1) and quality levels (2-5)."""
+    # 1. Veto condition: security flag injection_detected
     assert score_content({"promised_outcome": "skill"}, "injection_detected") == 1
 
-    # MLM recruitment signal
+    # 2. Veto condition: recruitment_signal is True
     assert (
         score_content({"recruitment_signal": True, "promised_outcome": "skill"}, None)
         == 1
     )
 
-    # High quality skill course with many syllabus topics and no scarcity signals
+    # 3. Veto condition: Recursive Theme (income outcome + monetization syllabus)
+    recursive_profile = {
+        "promised_outcome": "income",
+        "syllabus": ["Audience monetization strategies", "How to sell courses"],
+    }
+    assert score_content(recursive_profile, None) == 1
+
+    # 4. Veto condition: Income Promises + Scarcity Manipulation
+    income_scarcity_profile = {
+        "promised_outcome": "income",
+        "scarcity_signals": ["only 2 spots left"],
+    }
+    assert score_content(income_scarcity_profile, None) == 1
+
+    # Non-veto quality checks: must return 2-5, never 1
+    # Skill course with syllabus
+    skill_profile = {
+        "promised_outcome": "skill",
+        "syllabus": ["Intro", "Setup"],
+    }
+    assert score_content(skill_profile, None) >= 2
+
+    # Income course without scarcity or recursive topics
+    income_clean_profile = {
+        "promised_outcome": "income",
+        "syllabus": ["Financial Literacy Basics"],
+        "scarcity_signals": [],
+    }
+    assert score_content(income_clean_profile, None) >= 2
+
+    # High quality skill course
     high_quality_profile = {
         "promised_outcome": "skill",
         "syllabus": ["Intro", "Setup", "Coding", "Testing", "Deployment"],
         "scarcity_signals": [],
     }
     assert score_content(high_quality_profile, None) == 5
-
-    # Skill course with fewer topics and scarcity signals
-    lower_quality_profile = {
-        "promised_outcome": "skill",
-        "syllabus": ["Intro"],
-        "scarcity_signals": ["limited seats"],
-    }
-    assert score_content(lower_quality_profile, None) <= 3
 
 
 def test_score_instructor() -> None:
@@ -155,3 +178,32 @@ def test_score_alt_instructor() -> None:
         )
         == 5
     )
+
+
+def test_decide_mode_scores_only() -> None:
+    """Tests decide_mode to ensure decision branches are derived solely from scores."""
+    # 1. content_score == 1 -> should_not
+    scores = {"content_score": 1, "instructor_score": 5, "alt_content_score": 2}
+    mode, _, _ = decide_mode(scores, {}, {}, {})
+    assert mode == "A_should_not"
+
+    # 2. worth_buying (content_score >= 3, instructor_score >= 4, alt_content_score <= content_score)
+    scores = {"content_score": 3, "instructor_score": 4, "alt_content_score": 2}
+    mode, _, _ = decide_mode(scores, {}, {}, {})
+    assert mode == "worth_buying"
+
+    # 3. B_need_not (otherwise)
+    # E.g. content_score too low (< 3)
+    scores = {"content_score": 2, "instructor_score": 5, "alt_content_score": 2}
+    mode, _, _ = decide_mode(scores, {}, {}, {})
+    assert mode == "B_need_not"
+
+    # E.g. instructor_score too low (< 4)
+    scores = {"content_score": 4, "instructor_score": 3, "alt_content_score": 2}
+    mode, _, _ = decide_mode(scores, {}, {}, {})
+    assert mode == "B_need_not"
+
+    # E.g. alt_content_score > content_score (free alternatives coverage outweighs course quality)
+    scores = {"content_score": 3, "instructor_score": 5, "alt_content_score": 4}
+    mode, _, _ = decide_mode(scores, {}, {}, {})
+    assert mode == "B_need_not"

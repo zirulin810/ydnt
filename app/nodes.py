@@ -178,8 +178,16 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
     alt_content_score = score_alt_content(free_alt)
     alt_instructor_score = score_alt_instructor(free_alt)
 
+    scores = {
+        "price_score": price_score,
+        "content_score": content_score,
+        "instructor_score": instructor_score,
+        "alt_content_score": alt_content_score,
+        "alt_instructor_score": alt_instructor_score,
+    }
+
     mode, red_flags, green_flags = decide_mode(
-        profile, instructor, free_alt, security_flag
+        scores, profile, instructor, free_alt, security_flag
     )
 
     best_coverage_pct = free_alt.get("best_coverage_pct", 0)

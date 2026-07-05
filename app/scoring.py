@@ -47,15 +47,36 @@ def score_pricing(profile: dict[str, Any]) -> int:
 def score_content(profile: dict[str, Any], security_flag: str | None) -> int:
     """Scores course content value and safety from 1 to 5.
 
-    Design: Penalizes security flags, recruitment signals, and scarcity tactics,
-    while rewarding concrete skill outcomes and comprehensive syllabus.
+    Design: Returning 1 if and only if any toxicity/veto signals occur.
+    Otherwise, returns a quality score between 2 and 5.
     """
-    if security_flag == "injection_detected":
-        return 1
-    if profile.get("recruitment_signal", False):
+    promised_outcome = profile.get("promised_outcome", "unknown")
+    syllabus = profile.get("syllabus", [])
+    syllabus_str = " ".join(syllabus).lower()
+    recursive_keywords = [
+        "audience",
+        "sell course",
+        "monetize",
+        "make money",
+        "following",
+        "passive income",
+    ]
+    is_recursive = promised_outcome == "income" and any(
+        k in syllabus_str for k in recursive_keywords
+    )
+    scarcity_signals = profile.get("scarcity_signals", [])
+    recruitment_signal = profile.get("recruitment_signal", False)
+
+    # Toxicity check: force return 1 if any veto condition matches
+    if (
+        security_flag == "injection_detected"
+        or recruitment_signal
+        or is_recursive
+        or (promised_outcome == "income" and scarcity_signals)
+    ):
         return 1
 
-    promised_outcome = profile.get("promised_outcome", "unknown")
+    # Quality scoring for non-toxic courses (giving 2..5)
     if promised_outcome == "income":
         score = 2
     elif promised_outcome == "skill":
@@ -63,17 +84,16 @@ def score_content(profile: dict[str, Any], security_flag: str | None) -> int:
     else:
         score = 2
 
-    syllabus = profile.get("syllabus", [])
     if len(syllabus) >= 5:
         score += 2
     elif len(syllabus) >= 2:
         score += 1
 
-    scarcity = profile.get("scarcity_signals", [])
-    if scarcity:
+    if scarcity_signals:
         score -= 1
 
-    return max(1, min(5, score))
+    # Ensure score is within 2..5 range for non-toxic content
+    return max(2, min(5, score))
 
 
 def score_instructor(evidence: dict[str, Any]) -> int:
@@ -154,6 +174,7 @@ def score_alt_instructor(free_alt: dict[str, Any]) -> int:
 
 
 def decide_mode(
+    scores: dict[str, int],
     profile: dict[str, Any],
     instructor: dict[str, Any],
     free_alt: dict[str, Any],
@@ -161,8 +182,8 @@ def decide_mode(
 ) -> tuple[str, list[str], list[str]]:
     """Determines final due diligence mode, red flags, and green flags.
 
-    Design: Maps the combination of scores and flags to A_should_not, worth_buying,
-    or B_need_not. Prioritizes hard-fact parameters.
+    Design: Mode determination is solely based on scores. Raw fields are
+    used only to generate the flag messages.
     """
     promised_outcome = profile.get("promised_outcome", "unknown")
     syllabus = profile.get("syllabus", [])
@@ -241,23 +262,18 @@ def decide_mode(
             "High Extraction Cost: Free alternatives are unstructured/messy."
         )
 
-    # Decision Matrix
-    if (
-        is_recursive
-        or recruitment_signal
-        or (promised_outcome == "income" and scarcity_signals)
-    ):
+    # Decision Matrix solely based on scores
+    content_score = scores.get("content_score", 3)
+    instructor_score = scores.get("instructor_score", 1)
+    alt_content_score = scores.get("alt_content_score", 1)
+
+    if content_score == 1:
         mode = "A_should_not"
-    elif promised_outcome == "skill" and (
-        (
-            footprint in ["strong", "medium"]
-            and best_coverage_pct < 80
-            and high_extraction_cost
-        )
-        or (
-            (github_real_work or verifiable_employment)
-            and (best_coverage_pct < 70 or high_extraction_cost or any_content_farm)
-        )
+    elif (
+        content_score >= 3
+        and instructor_score >= 4
+        # coverage <= course content quality (meaning free alternative is not better/easier than buying)
+        and alt_content_score <= content_score
     ):
         mode = "worth_buying"
     else:
