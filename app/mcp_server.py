@@ -41,6 +41,9 @@ class MockDataMissing(Exception):
     pass
 
 
+MAX_TRANSCRIPT_CHARS: int = 3000
+
+
 # ---------------------------------------------------------------------------
 # Mock / Cache Helpers
 # ---------------------------------------------------------------------------
@@ -500,8 +503,13 @@ def search_youtube(query: str) -> list[dict[str, Any]]:
 def get_youtube_transcript(video_id: str) -> str:
     """Retrieves the transcript/captions for a specified YouTube video."""
     if USE_MOCK:
-        return _mock_get_youtube_transcript(video_id)
-    return _live_get_youtube_transcript(video_id)
+        raw_transcript = _mock_get_youtube_transcript(video_id)
+    else:
+        raw_transcript = _live_get_youtube_transcript(video_id)
+
+    if len(raw_transcript) > MAX_TRANSCRIPT_CHARS:
+        return raw_transcript[:MAX_TRANSCRIPT_CHARS] + " [TRUNCATED]"
+    return raw_transcript
 
 
 @mcp.tool()

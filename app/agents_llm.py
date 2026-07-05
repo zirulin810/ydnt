@@ -154,7 +154,10 @@ verdict_agent = LlmAgent(
         "Translate this data directly into the final Verdict output. Do not make up flags. Provide a detailed, "
         "professional evidence-based conclusion summarizing the due diligence findings.\n"
         "Do NOT populate the free_alternatives field; leave it as an empty list. It is filled in "
-        "deterministically afterward from verified tool data."
+        "deterministically afterward from verified tool data.\n"
+        "Keep the conclusion and money_vs_time CONCISE (a few sentences each, well under ~150 words). "
+        "Do NOT reproduce, quote, or summarize transcript text. Base the rationale strictly on the "
+        "rubric result (mode/scores/flags)."
     ),
     output_schema=Verdict,
     output_key="verdict",

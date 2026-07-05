@@ -272,3 +272,17 @@ def test_live_mode_get_youtube_transcript_failure(monkeypatch) -> None:
     with pytest.raises(RuntimeError):
         get_youtube_transcript("video_123")
 
+
+def test_get_youtube_transcript_truncation(monkeypatch) -> None:
+    """Verifies that get_youtube_transcript truncates outputs exceeding MAX_TRANSCRIPT_CHARS."""
+    monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
+
+    long_str = "A" * 4000
+    monkeypatch.setattr("app.mcp_server._mock_get_youtube_transcript", lambda vid: long_str)
+
+    from app.mcp_server import MAX_TRANSCRIPT_CHARS
+    result = get_youtube_transcript("video_123")
+    assert len(result) <= MAX_TRANSCRIPT_CHARS + len(" [TRUNCATED]")
+    assert result.endswith("[TRUNCATED]")
+    assert result.startswith("A" * MAX_TRANSCRIPT_CHARS)
+
