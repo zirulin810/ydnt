@@ -177,23 +177,55 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
         raise ValueError(
             f"fetch_sales_page requires a valid HTTP/HTTPS URL in live mode: {url_or_case}"
         )
+
+    jina_url = f"https://r.jina.ai/{url_or_case}"
+    jina_api_key = os.getenv("JINA_API_KEY")
+    
+    errors = []
+    results = []
+
+    # Attempt 1: Default headers (no format specified)
     try:
-        response = httpx.get(url_or_case, timeout=4.0, follow_redirects=True)
+        headers_1 = {}
+        if jina_api_key:
+            headers_1["Authorization"] = f"Bearer {jina_api_key}"
+        response = httpx.get(jina_url, headers=headers_1, timeout=20.0, follow_redirects=True)
         response.raise_for_status()
-        text = response.text
-        if not text:
-            raise ValueError(f"Empty sales page response from {url_or_case}")
-        text = re.sub(r"<[^>]+>", " ", text)
-        text = re.sub(r"\s+", " ", text).strip()
-        if not text:
-            raise ValueError(
-                f"Empty text content after parsing HTML from {url_or_case}"
-            )
-        return text
+        text = response.text.strip()
+        if text:
+            results.append(text)
     except Exception as e:
-        raise RuntimeError(
-            f"Live sales page fetch failed for {url_or_case}: {e}"
-        ) from e
+        errors.append(f"Attempt 1 failed: {e}")
+
+    # Fallback condition: Attempt 1 failed or returned result is too short (< 800 characters)
+    needs_attempt_2 = (not results) or (len(results[0]) < 800)
+
+    if needs_attempt_2:
+        # Attempt 2: X-Return-Format: markdown
+        try:
+            headers_2 = {"X-Return-Format": "markdown"}
+            if jina_api_key:
+                headers_2["Authorization"] = f"Bearer {jina_api_key}"
+            response = httpx.get(jina_url, headers=headers_2, timeout=20.0, follow_redirects=True)
+            response.raise_for_status()
+            text = response.text.strip()
+            if text:
+                results.append(text)
+        except Exception as e:
+            errors.append(f"Attempt 2 failed: {e}")
+
+    # Return the longer of the non-empty results, cleaning whitespaces
+    if results:
+        results.sort(key=len, reverse=True)
+        longest = results[0]
+        cleaned = re.sub(r"\s+", " ", longest).strip()
+        if cleaned:
+            return cleaned
+
+    err_msg = "; ".join(errors) or "Returned empty content from both attempts."
+    raise RuntimeError(
+        f"Live sales page fetch failed for {url_or_case}: {err_msg}"
+    )
 
 
 def _live_search_youtube(query: str) -> list[dict[str, Any]]:

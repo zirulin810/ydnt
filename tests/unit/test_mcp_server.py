@@ -81,7 +81,7 @@ def test_live_mode_fetch_sales_page_invalid_url(monkeypatch) -> None:
 
 
 def test_live_mode_fetch_sales_page_http_error(monkeypatch) -> None:
-    """Verifies that live fetch_sales_page raises RuntimeError on HTTP failure (500)."""
+    """Verifies that live fetch_sales_page raises RuntimeError on HTTP failure (500) from both attempts."""
     monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
 
     def mock_get(*args, **kwargs):
@@ -95,7 +95,7 @@ def test_live_mode_fetch_sales_page_http_error(monkeypatch) -> None:
 
 
 def test_live_mode_fetch_sales_page_network_exception(monkeypatch) -> None:
-    """Verifies that live fetch_sales_page raises RuntimeError on network/request exception."""
+    """Verifies that live fetch_sales_page raises RuntimeError on network/request exceptions from both attempts."""
     monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
 
     def mock_get(*args, **kwargs):
@@ -105,6 +105,34 @@ def test_live_mode_fetch_sales_page_network_exception(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError):
         fetch_sales_page("https://example.com/course")
+
+
+def test_live_mode_fetch_sales_page_fallback_longer(monkeypatch) -> None:
+    """Verifies that live fetch_sales_page falls back to Attempt 2 when Attempt 1 result is too short,
+
+    and returns the longer of the two results.
+    """
+    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+
+    call_count = 0
+
+    def mock_get(url, *args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        headers = kwargs.get("headers", {})
+        if "X-Return-Format" not in headers:
+            # First attempt: short content
+            return httpx.Response(200, text="Short content " * 5, request=httpx.Request("GET", url))
+        else:
+            # Second attempt: longer content
+            return httpx.Response(200, text="Longer content markdown format " * 40, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx, "get", mock_get)
+
+    result = fetch_sales_page("https://example.com/course")
+    assert call_count == 2
+    assert "Longer content markdown format" in result
+    assert len(result) > 800
 
 
 def test_live_mode_search_youtube_api_error(monkeypatch) -> None:
