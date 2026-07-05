@@ -234,7 +234,7 @@ def decide_mode(
     if content_score == 1:
         mode = "should_not"
     elif content_score >= 3 and creator_score >= 4 and alt_content_score <= content_score:
-        mode = "worth_buying"
+        mode = "worthy"
     else:
         mode = "need_not"
 

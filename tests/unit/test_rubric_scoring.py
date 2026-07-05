@@ -188,7 +188,7 @@ def test_scenario_5_strong_footprint_low_coverage_high_extraction() -> None:
     """Scenario 5: Strong/Medium Footprint + Coverage < 80% + High Extraction Cost.
 
     A course taught by an creator with a strong footprint, where free alternatives
-    cover less than 80% and have high extraction cost, must lead to 'worth_buying' mode.
+    cover less than 80% and have high extraction cost, must lead to 'worthy' mode.
     """
     profile = default_course_profile(promised_outcome="skill")
     creator = default_creator_evidence(
@@ -211,7 +211,7 @@ def test_scenario_5_strong_footprint_low_coverage_high_extraction() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "worth_buying"
+    assert result["mode"] == "worthy"
 
 
 def test_scenario_6_skill_course_credible_creator_no_good_alternative() -> None:
@@ -219,7 +219,7 @@ def test_scenario_6_skill_course_credible_creator_no_good_alternative() -> None:
 
     A skill course where the creator has verifiable professional work / GitHub contributions,
     and there are no good free alternatives (very low coverage or extremely high cost),
-    must lead to 'worth_buying' mode.
+    must lead to 'worthy' mode.
     """
     profile = default_course_profile(promised_outcome="skill")
     creator = default_creator_evidence(
@@ -243,7 +243,7 @@ def test_scenario_6_skill_course_credible_creator_no_good_alternative() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "worth_buying"
+    assert result["mode"] == "worthy"
 
 
 def test_scenario_7_weak_footprint_only_sells_courses() -> None:

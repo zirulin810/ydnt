@@ -240,10 +240,10 @@ def test_decide_mode_scores_only() -> None:
     mode, red_flags, green_flags = decide_mode(scores, {})
     assert mode == "should_not"
 
-    # 2. worth_buying (content_score >= 3, creator_score >= 4, alt_content_score <= content_score)
+    # 2. worthy (content_score >= 3, creator_score >= 4, alt_content_score <= content_score)
     scores = {"content_score": 3, "creator_score": 4, "alt_content_score": 2}
     mode, red_flags, green_flags = decide_mode(scores, {})
-    assert mode == "worth_buying"
+    assert mode == "worthy"
 
     # 3. need_not (otherwise)
     # E.g. content_score too low (< 3)
@@ -299,7 +299,7 @@ def test_decide_mode_non_veto_flags() -> None:
         ]
     }
     mode, red_flags, green_flags = decide_mode(scores, reasons)
-    assert mode == "worth_buying"
+    assert mode == "worthy"
     assert len(red_flags) == 2
     assert any("Income" in flag for flag in red_flags)
     assert any("Content Farm" in flag for flag in red_flags)
