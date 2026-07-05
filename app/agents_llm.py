@@ -25,7 +25,6 @@ from google.adk.models import Gemini
 from google.genai import types
 
 from app.mcp_server import (
-    fetch_sales_page,
     get_channel_stats,
     get_youtube_transcript,
     search_youtube,
@@ -50,8 +49,7 @@ parse_course = LlmAgent(
     ),
     instruction=(
         "You are an online course analyzer. Your task is to analyze the cleaned text of a course's sales page "
-        "and extract a structured profile of the course.\n"
-        "Use the fetch_sales_page tool to get the course page content.\n"
+        "passed directly to you and extract a structured profile of the course.\n"
         "Identify:\n"
         "- Title of the course\n"
         "- Instructor/speaker name\n"
@@ -63,7 +61,7 @@ parse_course = LlmAgent(
         "- Recruitment signals (MLM elements, students becoming resellers/coaches for the course itself)\n"
         "Do not invent facts. If information is missing, use default empty lists or values."
     ),
-    tools=[fetch_sales_page],
+    tools=[],
     output_schema=CourseProfile,
     output_key="course_profile",
 )

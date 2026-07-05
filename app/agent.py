@@ -21,6 +21,7 @@ Tracks the complete execution flow from sales page ingestion to the final verdic
 from __future__ import annotations
 
 import os
+
 import google.auth
 
 # Initialize Google Cloud / Vertex AI environment variables
@@ -33,10 +34,21 @@ except Exception:
     pass
 
 from google.adk.apps import App
-from google.adk.workflow import Edge, Workflow, START
+from google.adk.workflow import START, Edge, Workflow
 
-from app.agents_llm import free_alt_score, instructor_verify, parse_course, verdict_agent
-from app.nodes import budget_gate, quick_verdict, security_screen, rubric_scoring_node
+from app.agents_llm import (
+    free_alt_score,
+    instructor_verify,
+    parse_course,
+    verdict_agent,
+)
+from app.nodes import (
+    budget_gate,
+    fetch_page_node,
+    quick_verdict,
+    rubric_scoring_node,
+    security_screen,
+)
 
 # ---------------------------------------------------------------------------
 # Workflow DAG Definition
@@ -45,9 +57,10 @@ root_agent = Workflow(
     name="ydnt_due_diligence",
     edges=[
         # Phase 1: Input ingestion, cleaning, and gate routing
-        Edge(from_node=START, to_node=parse_course),
-        Edge(from_node=parse_course, to_node=security_screen),
-        Edge(from_node=security_screen, to_node=budget_gate),
+        Edge(from_node=START, to_node=fetch_page_node),
+        Edge(from_node=fetch_page_node, to_node=security_screen),
+        Edge(from_node=security_screen, to_node=parse_course),
+        Edge(from_node=parse_course, to_node=budget_gate),
         # Path A: Fast, cost-saving path for low-cost, low-risk courses
         Edge(from_node=budget_gate, to_node=quick_verdict, route="quick"),
         # Path B: Full analysis path for high-cost or high-risk courses
