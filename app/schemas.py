@@ -125,3 +125,7 @@ class Verdict(BaseModel):
     confidence: Literal["high", "medium", "low"] = Field(
         description="Confidence level of the verdict."
     )
+    free_alternatives: list[FreeAlternative] = Field(
+        default_factory=list,
+        description="The free alternative resources (with links) surfaced during due diligence."
+    )

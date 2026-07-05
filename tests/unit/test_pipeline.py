@@ -99,3 +99,68 @@ def test_prepare_free_alt_input_empty() -> None:
 
     assert "Unknown Course" in output
     assert "[]" in output
+
+
+def test_finalize_verdict_success() -> None:
+    """Tests finalize_verdict successfully populates free_alternatives from state."""
+    from app.nodes import finalize_verdict
+
+    verdict_data = {
+        "mode": "B_need_not",
+        "red_flags": [],
+        "green_flags": [],
+        "money_vs_time": "time is better",
+        "conclusion": "test conclusion",
+        "confidence": "high",
+        "free_alternatives": []
+    }
+    free_alts = {
+        "items": [
+            {
+                "title": "Free Tutorial 1",
+                "url": "https://youtube.com/watch?v=specific123",
+                "coverage_pct": 80,
+                "extraction_cost": "low",
+                "content_farm_flag": False
+            }
+        ],
+        "best_coverage_pct": 80
+    }
+
+    ctx = MockContext(state={
+        "verdict": verdict_data,
+        "free_alternatives": free_alts
+    })
+
+    event = finalize_verdict._func(ctx, None)
+    output = event.output
+
+    assert output["free_alternatives"]
+    assert len(output["free_alternatives"]) == 1
+    assert output["free_alternatives"][0]["url"] == "https://youtube.com/watch?v=specific123"
+    assert ctx.state["verdict"]["free_alternatives"][0]["url"] == "https://youtube.com/watch?v=specific123"
+
+
+def test_finalize_verdict_empty() -> None:
+    """Tests finalize_verdict handles missing or empty free alternatives without error."""
+    from app.nodes import finalize_verdict
+
+    verdict_data = {
+        "mode": "B_need_not",
+        "red_flags": [],
+        "green_flags": [],
+        "money_vs_time": "time is better",
+        "conclusion": "test conclusion",
+        "confidence": "high",
+        "free_alternatives": []
+    }
+
+    ctx = MockContext(state={
+        "verdict": verdict_data
+    })
+
+    event = finalize_verdict._func(ctx, None)
+    output = event.output
+
+    assert output["free_alternatives"] == []
+    assert ctx.state["verdict"]["free_alternatives"] == []

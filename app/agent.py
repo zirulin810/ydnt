@@ -44,6 +44,7 @@ from app.agents_llm import (
 )
 from app.nodes import (
     fetch_page_node,
+    finalize_verdict,
     insufficient_verdict,
     prepare_free_alt_input,
     rubric_scoring_node,
@@ -69,6 +70,7 @@ root_agent = Workflow(
         Edge(from_node=prepare_free_alt_input, to_node=free_alt_score),
         Edge(from_node=free_alt_score, to_node=rubric_scoring_node),
         Edge(from_node=rubric_scoring_node, to_node=verdict_agent),
+        Edge(from_node=verdict_agent, to_node=finalize_verdict),
     ],
 )
 

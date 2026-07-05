@@ -139,7 +139,9 @@ verdict_agent = LlmAgent(
         "due diligence verdict and buying recommendation.\n"
         "You will receive the deterministic rubric scoring result containing 'mode', 'red_flags', and 'green_flags'.\n"
         "Translate this data directly into the final Verdict output. Do not make up flags. Provide a detailed, "
-        "professional evidence-based conclusion summarizing the due diligence findings."
+        "professional evidence-based conclusion summarizing the due diligence findings.\n"
+        "Do NOT populate the free_alternatives field; leave it as an empty list. It is filled in "
+        "deterministically afterward from verified tool data."
     ),
     output_schema=Verdict,
     output_key="verdict",

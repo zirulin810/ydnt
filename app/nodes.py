@@ -206,3 +206,35 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
 
     ctx.state["rubric_result"] = rubric_result
     return Event(output=rubric_result)
+
+
+@node
+def finalize_verdict(ctx: Context, node_input: Any) -> Event:
+    """Deterministically populates the free alternative resource list in the final verdict.
+
+    Design: Ensures URLs are populated directly from verified tool findings to prevent hallucination.
+    """
+    verdict_raw = ctx.state.get("verdict", {})
+    free_alt_raw = ctx.state.get("free_alternatives", {})
+
+    def to_dict(obj: Any) -> dict:
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump()
+        if hasattr(obj, "dict"):
+            return obj.dict()
+        if isinstance(obj, dict):
+            return obj
+        return {}
+
+    verdict = to_dict(verdict_raw)
+    free_alt = to_dict(free_alt_raw)
+
+    items = free_alt.get("items", [])
+    formatted_items = []
+    for item in items:
+        formatted_items.append(to_dict(item))
+
+    verdict["free_alternatives"] = formatted_items
+    ctx.state["verdict"] = verdict
+
+    return Event(output=verdict)
