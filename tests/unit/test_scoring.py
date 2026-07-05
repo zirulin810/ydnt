@@ -207,3 +207,29 @@ def test_decide_mode_scores_only() -> None:
     scores = {"content_score": 3, "instructor_score": 5, "alt_content_score": 4}
     mode, _, _ = decide_mode(scores, {}, {}, {})
     assert mode == "B_need_not"
+
+
+def test_decide_mode_veto_flags() -> None:
+    """Tests that decide_mode generates correct flags for veto situations."""
+    # 1. Prompt Injection veto
+    scores = {"content_score": 1}
+    profile = {}
+    instructor = {}
+    free_alt = {}
+    mode, red_flags, green_flags = decide_mode(
+        scores, profile, instructor, free_alt, security_flag="injection_detected"
+    )
+    assert mode == "A_should_not"
+    assert any("Injection" in flag for flag in red_flags)
+    assert green_flags == []
+
+    # 2. Recruitment MLM veto
+    scores = {"content_score": 1}
+    profile = {"recruitment_signal": True}
+    mode, red_flags, green_flags = decide_mode(
+        scores, profile, instructor, free_alt
+    )
+    assert mode == "A_should_not"
+    assert any("MLM" in flag for flag in red_flags)
+    assert green_flags == []
+

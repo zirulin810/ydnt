@@ -215,55 +215,77 @@ def decide_mode(
         item.get("extraction_cost") == "high" for item in free_items
     )
 
+    content_score = scores.get("content_score", 3)
+
     red_flags = []
     green_flags = []
 
-    # Flag calculations matching historical rules
-    if is_recursive:
-        red_flags.append(
-            "Recursive Theme: Course syllabus focuses on audience monetization/selling courses."
-        )
+    if content_score == 1:
+        # Veto branch: only generate flags pointing to the actual veto reasons
+        if security_flag == "injection_detected":
+            red_flags.append(
+                "Prompt Injection Detected: Malicious injection attempt blocked."
+            )
+        if recruitment_signal:
+            red_flags.append(
+                "Recruitment MLM: Promotes students to become resellers/coaches."
+            )
+        if is_recursive:
+            red_flags.append(
+                "Recursive Theme: Course syllabus focuses on audience monetization/selling courses."
+            )
+        if promised_outcome == "income":
+            red_flags.append("Income Promises: Marketing promises financial earnings.")
+        if scarcity_signals:
+            red_flags.append(
+                f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."
+            )
     else:
-        green_flags.append("Teaches concrete technical or business skills.")
+        # Standard branch: original quality and coverage flags logic
+        if is_recursive:
+            red_flags.append(
+                "Recursive Theme: Course syllabus focuses on audience monetization/selling courses."
+            )
+        else:
+            green_flags.append("Teaches concrete technical or business skills.")
 
-    if footprint == "weak" and only_sells_courses:
-        red_flags.append(
-            "Weak Footprint: Instructor has no notable independent professional achievements."
-        )
-    elif github_real_work or verifiable_employment:
-        green_flags.append(
-            "Credible Instructor: Active GitHub or professional employment."
-        )
+        if footprint == "weak" and only_sells_courses:
+            red_flags.append(
+                "Weak Footprint: Instructor has no notable independent professional achievements."
+            )
+        elif github_real_work or verifiable_employment:
+            green_flags.append(
+                "Credible Instructor: Active GitHub or professional employment."
+            )
 
-    if promised_outcome == "income":
-        red_flags.append("Income Promises: Marketing promises financial earnings.")
-    elif promised_outcome == "skill":
-        green_flags.append("Skill acquisition promise.")
+        if promised_outcome == "income":
+            red_flags.append("Income Promises: Marketing promises financial earnings.")
+        elif promised_outcome == "skill":
+            green_flags.append("Skill acquisition promise.")
 
-    if any_content_farm:
-        red_flags.append("Content Farm: Free alternatives are bloated or low-quality.")
+        if any_content_farm:
+            red_flags.append("Content Farm: Free alternatives are bloated or low-quality.")
 
-    if scarcity_signals:
-        red_flags.append(
-            f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."
-        )
+        if scarcity_signals:
+            red_flags.append(
+                f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."
+            )
 
-    if recruitment_signal:
-        red_flags.append(
-            "Recruitment MLM: Promotes students to become resellers/coaches."
-        )
+        if recruitment_signal:
+            red_flags.append(
+                "Recruitment MLM: Promotes students to become resellers/coaches."
+            )
 
-    if best_coverage_pct < 60:
-        red_flags.append(
-            f"Low Free Coverage: Free alternatives cover only {best_coverage_pct}%."
-        )
-    elif high_extraction_cost:
-        red_flags.append(
-            "High Extraction Cost: Free alternatives are unstructured/messy."
-        )
+        if best_coverage_pct < 60:
+            red_flags.append(
+                f"Low Free Coverage: Free alternatives cover only {best_coverage_pct}%."
+            )
+        elif high_extraction_cost:
+            red_flags.append(
+                "High Extraction Cost: Free alternatives are unstructured/messy."
+            )
 
     # Decision Matrix solely based on scores
-    content_score = scores.get("content_score", 3)
     instructor_score = scores.get("instructor_score", 1)
     alt_content_score = scores.get("alt_content_score", 1)
 
@@ -280,3 +302,4 @@ def decide_mode(
         mode = "B_need_not"
 
     return mode, red_flags, green_flags
+
