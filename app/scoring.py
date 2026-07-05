@@ -21,30 +21,37 @@ the final mode, without depending on google.adk or Context objects.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 
-def score_pricing(profile: dict[str, Any]) -> int:
+@dataclass(frozen=True)
+class Reason:
+    severity: str   # "red" 或 "green"
+    message: str
+
+
+def score_pricing(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
     """Scores course pricing from 1 (very high risk/cost) to 5 (low risk/cost).
 
     Design: Assesses total price risk. Low pricing receives a high score.
     """
     price = profile.get("price_usd", 0.0)
     if price <= 0:
-        return 5
+        return 5, []
     elif price < 50:
-        return 5
+        return 5, []
     elif price < 150:
-        return 4
+        return 4, []
     elif price < 500:
-        return 3
+        return 3, []
     elif price < 1000:
-        return 2
+        return 2, []
     else:
-        return 1
+        return 1, []
 
 
-def score_content(profile: dict[str, Any], security_flag: str | None) -> int:
+def score_content(profile: dict[str, Any], security_flag: str | None) -> tuple[int, list[Reason]]:
     """Scores course content value and safety from 1 to 5.
 
     Design: Returning 1 if and only if any toxicity/veto signals occur.
@@ -74,29 +81,60 @@ def score_content(profile: dict[str, Any], security_flag: str | None) -> int:
         or is_recursive
         or (promised_outcome == "income" and scarcity_signals)
     ):
-        return 1
-
-    # Quality scoring for non-toxic courses (giving 2..5)
-    if promised_outcome == "income":
-        score = 2
-    elif promised_outcome == "skill":
-        score = 3
+        score = 1
     else:
-        score = 2
+        # Quality scoring for non-toxic courses (giving 2..5)
+        if promised_outcome == "income":
+            score = 2
+        elif promised_outcome == "skill":
+            score = 3
+        else:
+            score = 2
 
-    if len(syllabus) >= 5:
-        score += 2
-    elif len(syllabus) >= 2:
-        score += 1
+        if len(syllabus) >= 5:
+            score += 2
+        elif len(syllabus) >= 2:
+            score += 1
 
-    if scarcity_signals:
-        score -= 1
+        if scarcity_signals:
+            score -= 1
 
-    # Ensure score is within 2..5 range for non-toxic content
-    return max(2, min(5, score))
+        # Ensure score is within 2..5 range for non-toxic content
+        score = max(2, min(5, score))
+
+    reasons = []
+    if score == 1:
+        if security_flag == "injection_detected":
+            reasons.append(Reason("red", "Prompt Injection Detected: Malicious injection attempt blocked."))
+        if recruitment_signal:
+            reasons.append(Reason("red", "Recruitment MLM: Promotes students to become resellers/coaches."))
+        if is_recursive:
+            reasons.append(Reason("red", "Recursive Theme: Course syllabus focuses on audience monetization/selling courses."))
+        if promised_outcome == "income":
+            reasons.append(Reason("red", "Income Promises: Marketing promises financial earnings."))
+        if scarcity_signals:
+            reasons.append(Reason("red", f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."))
+    else:
+        if is_recursive:
+            reasons.append(Reason("red", "Recursive Theme: Course syllabus focuses on audience monetization/selling courses."))
+        else:
+            reasons.append(Reason("green", "Teaches concrete technical or business skills."))
+
+        if promised_outcome == "income":
+            reasons.append(Reason("red", "Income Promises: Marketing promises financial earnings."))
+        elif promised_outcome == "skill":
+            reasons.append(Reason("green", "Skill acquisition promise."))
+
+        if scarcity_signals:
+            reasons.append(Reason("red", f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."))
+
+        if recruitment_signal:
+            reasons.append(Reason("red", "Recruitment MLM: Promotes students to become resellers/coaches."))
+
+    return score, reasons
 
 
-def score_instructor(evidence: dict[str, Any]) -> int:
+def score_instructor(evidence: dict[str, Any]) -> tuple[int, list[Reason]]:
     """Scores instructor credibility and footprint from 1 to 5.
 
     Design: Relies on verifiable hard facts (GitHub real work or employment)
@@ -109,21 +147,28 @@ def score_instructor(evidence: dict[str, Any]) -> int:
 
     if github or employment:
         if footprint == "strong":
-            return 5
-        return 4
-
-    if footprint == "weak" and only_sells:
-        return 2
-
-    if footprint == "strong":
-        return 4
+            score = 5
+        else:
+            score = 4
+    elif footprint == "weak" and only_sells:
+        score = 2
+    elif footprint == "strong":
+        score = 4
     elif footprint == "medium":
-        return 3
+        score = 3
     else:
-        return 1
+        score = 1
+
+    reasons = []
+    if footprint == "weak" and only_sells:
+        reasons.append(Reason("red", "Weak Footprint: Instructor has no notable independent professional achievements."))
+    elif github or employment:
+        reasons.append(Reason("green", "Credible Instructor: Active GitHub or professional employment."))
+
+    return score, reasons
 
 
-def score_alt_content(free_alt: dict[str, Any]) -> int:
+def score_alt_content(free_alt: dict[str, Any]) -> tuple[int, list[Reason]]:
     """Scores quality and coverage depth of free alternatives from 1 to 5.
 
     Design: Values coverage percentage while penalizing low-quality content
@@ -151,155 +196,62 @@ def score_alt_content(free_alt: dict[str, Any]) -> int:
     if high_extraction_cost:
         score -= 1
 
-    return max(1, min(5, score))
+    score = max(1, min(5, score))
+
+    reasons = []
+    if any_content_farm:
+        reasons.append(Reason("red", "Content Farm: Free alternatives are bloated or low-quality."))
+    if best_coverage < 60:
+        reasons.append(Reason("red", f"Low Free Coverage: Free alternatives cover only {best_coverage}%."))
+    elif high_extraction_cost:
+        reasons.append(Reason("red", "High Extraction Cost: Free alternatives are unstructured/messy."))
+
+    return score, reasons
 
 
-def score_alt_instructor(free_alt: dict[str, Any]) -> int:
+def score_alt_instructor(free_alt: dict[str, Any]) -> tuple[int, list[Reason]]:
     """Scores alternative instructors' credibility from 1 to 5.
 
     Design: Rates alternative sources based on structural quality.
     """
     items = free_alt.get("items", [])
     if not items:
-        return 1
+        return 1, []
 
     any_content_farm = any(item.get("content_farm_flag", False) for item in items)
     high_extraction_cost = any(item.get("extraction_cost") == "high" for item in items)
 
     if any_content_farm:
-        return 2
+        return 2, []
     if high_extraction_cost:
-        return 3
-    return 5
+        return 3, []
+    return 5, []
 
 
 def decide_mode(
     scores: dict[str, int],
-    profile: dict[str, Any],
-    instructor: dict[str, Any],
-    free_alt: dict[str, Any],
-    security_flag: str | None = None,
+    reasons: dict[str, list[Reason]],
 ) -> tuple[str, list[str], list[str]]:
-    """Determines final due diligence mode, red flags, and green flags.
-
-    Design: Mode determination is solely based on scores. Raw fields are
-    used only to generate the flag messages.
-    """
-    promised_outcome = profile.get("promised_outcome", "unknown")
-    syllabus = profile.get("syllabus", [])
-    syllabus_str = " ".join(syllabus).lower()
-    recursive_keywords = [
-        "audience",
-        "sell course",
-        "monetize",
-        "make money",
-        "following",
-        "passive income",
-    ]
-    is_recursive = promised_outcome == "income" and any(
-        k in syllabus_str for k in recursive_keywords
-    )
-
-    scarcity_signals = profile.get("scarcity_signals", [])
-    recruitment_signal = profile.get("recruitment_signal", False)
-
-    footprint = instructor.get("footprint", "weak")
-    github_real_work = instructor.get("github_real_work", False)
-    verifiable_employment = instructor.get("verifiable_employment", False)
-    only_sells_courses = instructor.get("only_sells_courses", False)
-
-    free_items = free_alt.get("items", [])
-    best_coverage_pct = free_alt.get("best_coverage_pct", 0)
-    any_content_farm = any(item.get("content_farm_flag", False) for item in free_items)
-    high_extraction_cost = any(
-        item.get("extraction_cost") == "high" for item in free_items
-    )
-
+    """Determines final due diligence mode, red flags, and green flags based on scores and reasons."""
     content_score = scores.get("content_score", 3)
-
-    red_flags = []
-    green_flags = []
-
-    if content_score == 1:
-        # Veto branch: only generate flags pointing to the actual veto reasons
-        if security_flag == "injection_detected":
-            red_flags.append(
-                "Prompt Injection Detected: Malicious injection attempt blocked."
-            )
-        if recruitment_signal:
-            red_flags.append(
-                "Recruitment MLM: Promotes students to become resellers/coaches."
-            )
-        if is_recursive:
-            red_flags.append(
-                "Recursive Theme: Course syllabus focuses on audience monetization/selling courses."
-            )
-        if promised_outcome == "income":
-            red_flags.append("Income Promises: Marketing promises financial earnings.")
-        if scarcity_signals:
-            red_flags.append(
-                f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."
-            )
-    else:
-        # Standard branch: original quality and coverage flags logic
-        if is_recursive:
-            red_flags.append(
-                "Recursive Theme: Course syllabus focuses on audience monetization/selling courses."
-            )
-        else:
-            green_flags.append("Teaches concrete technical or business skills.")
-
-        if footprint == "weak" and only_sells_courses:
-            red_flags.append(
-                "Weak Footprint: Instructor has no notable independent professional achievements."
-            )
-        elif github_real_work or verifiable_employment:
-            green_flags.append(
-                "Credible Instructor: Active GitHub or professional employment."
-            )
-
-        if promised_outcome == "income":
-            red_flags.append("Income Promises: Marketing promises financial earnings.")
-        elif promised_outcome == "skill":
-            green_flags.append("Skill acquisition promise.")
-
-        if any_content_farm:
-            red_flags.append("Content Farm: Free alternatives are bloated or low-quality.")
-
-        if scarcity_signals:
-            red_flags.append(
-                f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."
-            )
-
-        if recruitment_signal:
-            red_flags.append(
-                "Recruitment MLM: Promotes students to become resellers/coaches."
-            )
-
-        if best_coverage_pct < 60:
-            red_flags.append(
-                f"Low Free Coverage: Free alternatives cover only {best_coverage_pct}%."
-            )
-        elif high_extraction_cost:
-            red_flags.append(
-                "High Extraction Cost: Free alternatives are unstructured/messy."
-            )
-
-    # Decision Matrix solely based on scores
     instructor_score = scores.get("instructor_score", 1)
     alt_content_score = scores.get("alt_content_score", 1)
 
+    # mode:與現在完全相同的分數判定(不變)
     if content_score == 1:
         mode = "A_should_not"
-    elif (
-        content_score >= 3
-        and instructor_score >= 4
-        # coverage <= course content quality (meaning free alternative is not better/easier than buying)
-        and alt_content_score <= content_score
-    ):
+    elif content_score >= 3 and instructor_score >= 4 and alt_content_score <= content_score:
         mode = "worth_buying"
     else:
         mode = "B_need_not"
 
-    return mode, red_flags, green_flags
+    # flags:veto 時只取 content 的 red 理由;否則匯集所有理由
+    if content_score == 1:
+        selected = [r for r in reasons.get("content", []) if r.severity == "red"]
+    else:
+        selected = [r for rs in reasons.values() for r in rs]
 
+    red_flags = [r.message for r in selected if r.severity == "red"]
+    green_flags = [r.message for r in selected if r.severity == "green"]
+
+    return mode, red_flags, green_flags

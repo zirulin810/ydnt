@@ -217,11 +217,11 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
         score_pricing,
     )
 
-    price_score = score_pricing(profile)
-    content_score = score_content(profile, security_flag)
-    instructor_score = score_instructor(instructor)
-    alt_content_score = score_alt_content(free_alt)
-    alt_instructor_score = score_alt_instructor(free_alt)
+    price_score, price_reasons = score_pricing(profile)
+    content_score, content_reasons = score_content(profile, security_flag)
+    instructor_score, instructor_reasons = score_instructor(instructor)
+    alt_content_score, alt_content_reasons = score_alt_content(free_alt)
+    alt_instructor_score, alt_instructor_reasons = score_alt_instructor(free_alt)
 
     scores = {
         "price_score": price_score,
@@ -231,9 +231,15 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
         "alt_instructor_score": alt_instructor_score,
     }
 
-    mode, red_flags, green_flags = decide_mode(
-        scores, profile, instructor, free_alt, security_flag
-    )
+    reasons = {
+        "content": content_reasons,
+        "instructor": instructor_reasons,
+        "alt": alt_content_reasons + alt_instructor_reasons,
+        "pricing": price_reasons,
+    }
+
+    mode, red_flags, green_flags = decide_mode(scores, reasons)
+
 
     best_coverage_pct = free_alt.get("best_coverage_pct", 0)
     free_items = free_alt.get("items", [])
