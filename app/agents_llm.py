@@ -174,7 +174,9 @@ verdict_agent = LlmAgent(
         "professional evidence-based conclusion and money_vs_time recommendation.\n"
         "Do NOT populate the free_alternatives field; leave it as an empty list. It is filled in "
         "deterministically afterward from verified tool data.\n"
-        "Keep BOTH the conclusion and money_vs_time CONCISE (strictly 2-3 sentences each, under 100 words). "
+        "Keep BOTH the conclusion and money_vs_time CONCISE (strictly 2-3 sentences each, under 100 words).\n"
+        "CRITICAL: Write BOTH the 'conclusion' and 'money_vs_time' fields STRICTLY in English. Do NOT write in "
+        "Chinese or any other language, even if the course page is in another language. "
         "Do NOT quote, summarize, or reproduce any raw page content or transcript text. Base your rationale "
         "strictly and solely on the provided rubric result (mode, scores, and flags)."
     ),
