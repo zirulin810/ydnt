@@ -23,7 +23,9 @@ from __future__ import annotations
 import json
 import os
 import re
+from html.parser import HTMLParser
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -240,7 +242,20 @@ def _live_search_youtube(query: str) -> list[dict[str, Any]]:
 
 
 def _live_get_youtube_transcript(video_id: str) -> str:
-    raise NotImplementedError("live mode not implemented yet")
+    from youtube_transcript_api import YouTubeTranscriptApi
+    try:
+        data = YouTubeTranscriptApi().fetch(video_id, languages=["en", "zh-TW", "zh-CN", "zh"])
+        parts = []
+        for item in data:
+            if isinstance(item, dict):
+                parts.append(item.get("text", ""))
+            else:
+                parts.append(getattr(item, "text", ""))
+        return " ".join(parts)
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to fetch YouTube transcript for video {video_id}: {e}"
+        ) from e
 
 
 def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
@@ -335,8 +350,96 @@ def _live_verify_github_user(handle: str) -> dict[str, Any]:
         ) from e
 
 
+class DuckDuckGoHTMLParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.results = []
+        self.current_result = {}
+        self.recording_title = False
+        self.recording_snippet = False
+        self.title_parts = []
+        self.snippet_parts = []
+        self.snippet_tag = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = dict(attrs)
+        class_name = attrs_dict.get("class", "")
+        
+        # If it's a result title anchor
+        if tag == "a" and "result__a" in class_name:
+            # Save any unsaved previous result
+            if "title" in self.current_result and "url" in self.current_result:
+                self.results.append({
+                    "title": self.current_result.get("title", ""),
+                    "url": self.current_result.get("url", ""),
+                    "snippet": self.current_result.get("snippet", ""),
+                })
+            self.current_result = {}
+            self.recording_title = True
+            self.title_parts = []
+            
+            raw_url = attrs_dict.get("href", "")
+            url = raw_url
+            if "uddg=" in raw_url:
+                parsed = urlparse(raw_url)
+                qs = parse_qs(parsed.query)
+                if "uddg" in qs:
+                    url = qs["uddg"][0]
+            self.current_result["url"] = url
+            
+        elif "result__snippet" in class_name:
+            self.recording_snippet = True
+            self.snippet_tag = tag
+            self.snippet_parts = []
+
+    def handle_data(self, data):
+        if self.recording_title:
+            self.title_parts.append(data)
+        elif self.recording_snippet:
+            self.snippet_parts.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self.recording_title:
+            self.recording_title = False
+            self.current_result["title"] = "".join(self.title_parts).strip()
+        elif self.recording_snippet and tag == self.snippet_tag:
+            self.recording_snippet = False
+            self.current_result["snippet"] = "".join(self.snippet_parts).strip()
+            
+            # Since snippet usually comes after title, save the result now
+            if "title" in self.current_result and "url" in self.current_result:
+                self.results.append({
+                    "title": self.current_result.get("title", ""),
+                    "url": self.current_result.get("url", ""),
+                    "snippet": self.current_result.get("snippet", ""),
+                })
+                self.current_result = {}
+
+
 def _live_web_search(query: str) -> list[dict[str, Any]]:
-    raise NotImplementedError("live mode not implemented yet")
+    url = "https://html.duckduckgo.com/html/"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+    }
+    payload = {"q": query}
+    try:
+        resp = httpx.post(url, data=payload, headers=headers, timeout=8.0)
+        resp.raise_for_status()
+    except Exception as e:
+        raise RuntimeError(f"Live web search failed for query '{query}': {e}") from e
+
+    parser = DuckDuckGoHTMLParser()
+    parser.feed(resp.text)
+    
+    # Save the last result if it wasn't appended
+    if "title" in parser.current_result and "url" in parser.current_result:
+        parser.results.append({
+            "title": parser.current_result.get("title", ""),
+            "url": parser.current_result.get("url", ""),
+            "snippet": parser.current_result.get("snippet", ""),
+        })
+        
+    return parser.results
 
 
 # ---------------------------------------------------------------------------

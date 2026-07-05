@@ -164,12 +164,83 @@ def test_live_mode_verify_github_user_api_error(monkeypatch) -> None:
         verify_github_user("some_github_handle")
 
 
-def test_live_mode_not_implemented(monkeypatch) -> None:
-    """Verifies that live get_youtube_transcript and web_search raise NotImplementedError."""
+def test_live_mode_web_search_success(monkeypatch) -> None:
+    """Verifies that live web_search successfully parses canned DDG HTML."""
     monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
 
-    with pytest.raises(NotImplementedError):
+    canned_html = """
+    <html>
+    <body>
+      <div class="result">
+        <a class="result__a" href="https://example.com/site">Example Title</a>
+        <span class="result__snippet">Example description snippet.</span>
+      </div>
+      <div class="result">
+        <a class="result__a" href="/l/?uddg=https%3A%2F%2Fexample2.com">Example Title 2</a>
+        <a class="result__snippet" href="/l/?uddg=https%3A%2F%2Fexample2.com">Example description snippet 2.</a>
+      </div>
+    </body>
+    </html>
+    """
+
+    def mock_post(*args, **kwargs):
+        return httpx.Response(200, content=canned_html, request=httpx.Request("POST", args[0]))
+
+    monkeypatch.setattr(httpx, "post", mock_post)
+
+    results = web_search("some query")
+    assert len(results) == 2
+    assert results[0]["title"] == "Example Title"
+    assert results[0]["url"] == "https://example.com/site"
+    assert results[0]["snippet"] == "Example description snippet."
+
+    assert results[1]["title"] == "Example Title 2"
+    assert results[1]["url"] == "https://example2.com"
+    assert results[1]["snippet"] == "Example description snippet 2."
+
+
+def test_live_mode_web_search_failure(monkeypatch) -> None:
+    """Verifies that live web_search raises RuntimeError on POST exception/error."""
+    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+
+    def mock_post(*args, **kwargs):
+        raise httpx.RequestError("Timeout")
+
+    monkeypatch.setattr(httpx, "post", mock_post)
+
+    with pytest.raises(RuntimeError):
+        web_search("some query")
+
+
+def test_live_mode_get_youtube_transcript_success(monkeypatch) -> None:
+    """Verifies that live get_youtube_transcript fetches and concatenates transcript snippets."""
+    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+
+    class MockYouTubeTranscriptApi:
+        def fetch(self, video_id, languages=None, preserve_formatting=False):
+            return [
+                {"text": "Hello world", "start": 0.0, "duration": 1.0},
+                {"text": "This is a transcript", "start": 1.0, "duration": 2.0},
+            ]
+
+    import youtube_transcript_api
+    monkeypatch.setattr(youtube_transcript_api, "YouTubeTranscriptApi", MockYouTubeTranscriptApi)
+
+    text = get_youtube_transcript("video_123")
+    assert text == "Hello world This is a transcript"
+
+
+def test_live_mode_get_youtube_transcript_failure(monkeypatch) -> None:
+    """Verifies that live get_youtube_transcript raises RuntimeError on fetch exception."""
+    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+
+    class MockYouTubeTranscriptApi:
+        def fetch(self, video_id, languages=None, preserve_formatting=False):
+            raise Exception("Transcript disabled")
+
+    import youtube_transcript_api
+    monkeypatch.setattr(youtube_transcript_api, "YouTubeTranscriptApi", MockYouTubeTranscriptApi)
+
+    with pytest.raises(RuntimeError):
         get_youtube_transcript("video_123")
 
-    with pytest.raises(NotImplementedError):
-        web_search("query")
