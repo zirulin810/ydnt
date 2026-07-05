@@ -22,8 +22,37 @@ YOUTUBE_API_KEY: str | None = os.getenv("YOUTUBE_API_KEY")
 GITHUB_TOKEN: str | None = os.getenv("GITHUB_TOKEN")
 
 # Google Cloud
-GOOGLE_CLOUD_PROJECT: str | None = os.getenv("GOOGLE_CLOUD_PROJECT")
 GOOGLE_CLOUD_LOCATION: str = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
+
+
+def configure_genai_backend() -> None:
+    """Configures the Google GenAI backend.
+
+    Tries to detect ADC (Application Default Credentials). If found, defaults to Vertex AI.
+    Otherwise, explicitly falls back to Gemini API direct access.
+    """
+    if "GOOGLE_GENAI_USE_VERTEXAI" in os.environ:
+        return
+
+    try:
+        import google.auth
+        from google.auth.exceptions import DefaultCredentialsError
+
+        _, project_id = google.auth.default()
+        os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
+        if "GOOGLE_CLOUD_PROJECT" not in os.environ and project_id:
+            os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+        if "GOOGLE_CLOUD_LOCATION" not in os.environ:
+            os.environ["GOOGLE_CLOUD_LOCATION"] = GOOGLE_CLOUD_LOCATION
+    except (DefaultCredentialsError, ValueError):
+        # Fallback to direct Gemini API key authentication backend
+        os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "False"
+
+
+configure_genai_backend()
+
+GOOGLE_CLOUD_PROJECT: str | None = os.getenv("GOOGLE_CLOUD_PROJECT")
+GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", GOOGLE_CLOUD_LOCATION)
 
 # ---------------------------------------------------------------------------
 # Model Configuration

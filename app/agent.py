@@ -20,19 +20,6 @@ Tracks the complete execution flow from sales page ingestion to the final verdic
 
 from __future__ import annotations
 
-import os
-
-import google.auth
-
-# Initialize Google Cloud / Vertex AI environment variables
-try:
-    _, project_id = google.auth.default()
-    os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
-    os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
-    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
-except Exception:
-    pass
-
 from google.adk.apps import App
 from google.adk.workflow import START, Edge, Workflow
 
