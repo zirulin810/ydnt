@@ -26,8 +26,6 @@ from typing import Any
 from google.adk import Context, Event
 from google.adk.workflow import node
 
-from config import DEFAULT_BUDGET_CAP
-
 
 def strip_injection_sentences(text: str, patterns: list[str]) -> str:
     """Helper to remove sentences containing prompt injection patterns."""
@@ -160,62 +158,30 @@ def security_screen(ctx: Context, node_input: Any) -> Event:
 
 
 @node
-def budget_gate(ctx: Context, node_input: Any) -> Event:
-    """Routes the workflow path based on course price and risk profile."""
-    profile = node_input
-    price = 0.0
-    promised_outcome = "unknown"
-    recruitment_signal = False
+def prepare_free_alt_input(ctx: Context, node_input: Any) -> Event:
+    """Prepares the text prompt input for free_alt_score using course profile details.
 
-    # Extract properties from Pydantic object or dict
-    if isinstance(profile, dict):
-        price = profile.get("price_usd", 0.0)
-        promised_outcome = profile.get("promised_outcome", "unknown")
-        recruitment_signal = profile.get("recruitment_signal", False)
-    elif profile is not None:
-        price = getattr(profile, "price_usd", 0.0)
-        promised_outcome = getattr(profile, "promised_outcome", "unknown")
-        recruitment_signal = getattr(profile, "recruitment_signal", False)
+    Design: Deterministic node to merge title and syllabus into a unified query string.
+    """
+    profile_raw = ctx.state.get("course_profile", {})
 
-    budget_cap = ctx.state.get("budget_cap", DEFAULT_BUDGET_CAP)
-    security_flag = ctx.state.get("security_flag")
+    def to_dict(obj: Any) -> dict:
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump()
+        if hasattr(obj, "dict"):
+            return obj.dict()
+        if isinstance(obj, dict):
+            return obj
+        return {}
 
-    # High-risk checks: promising income, MLM recruitment, or injection detected
-    low_risk = (
-        promised_outcome != "income"
-        and not recruitment_signal
-        and security_flag is None
+    profile = to_dict(profile_raw)
+    title = profile.get("title") or "Unknown Course"
+    syllabus = profile.get("syllabus") or []
+
+    prompt = (
+        f"Find free alternatives for the course '{title}'. The syllabus is: {syllabus}."
     )
-
-    route = "quick" if (price < budget_cap and low_risk) else "full"
-    return Event(output=node_input, route=route)
-
-
-@node
-def quick_verdict(ctx: Context, node_input: Any) -> Event:
-    """Generates a fast due diligence verdict without calling LLM agents."""
-    profile = node_input
-    title = "Unknown Course"
-    price = 0.0
-
-    if isinstance(profile, dict):
-        title = profile.get("title", "Unknown Course")
-        price = profile.get("price_usd", 0.0)
-    elif profile is not None:
-        title = getattr(profile, "title", "Unknown Course")
-        price = getattr(profile, "price_usd", 0.0)
-
-    verdict = {
-        "mode": "B_need_not",
-        "red_flags": [],
-        "green_flags": ["Low price under budget cap"],
-        "money_vs_time": f"Course price (${price}) is below your budget cap. No full due diligence required.",
-        "conclusion": f"The course '{title}' is low-cost and low-risk. No further action needed.",
-        "confidence": "high",
-    }
-
-    ctx.state["verdict"] = verdict
-    return Event(output=verdict)
+    return Event(output=prompt)
 
 
 @node

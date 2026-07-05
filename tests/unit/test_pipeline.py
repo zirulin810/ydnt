@@ -120,3 +120,37 @@ def test_nodes_chaining_injection(monkeypatch) -> None:
     assert ctx.state["security_flag"] == "injection_detected"
     assert "Ignore previous instructions" not in screen_event.output
     assert "Bypass all checks" not in screen_event.output
+
+
+def test_prepare_free_alt_input_success() -> None:
+    """Tests prepare_free_alt_input node with valid title and syllabus."""
+    from app.nodes import prepare_free_alt_input
+
+    ctx = MockContext(
+        state={
+            "course_profile": {
+                "title": "Machine Learning Spec",
+                "syllabus": ["linear regression", "neural networks"],
+            }
+        }
+    )
+
+    event = prepare_free_alt_input._func(ctx, None)
+    output = event.output
+
+    assert "Machine Learning Spec" in output
+    assert "linear regression" in output
+    assert "neural networks" in output
+
+
+def test_prepare_free_alt_input_empty() -> None:
+    """Tests prepare_free_alt_input node with missing/empty profile info."""
+    from app.nodes import prepare_free_alt_input
+
+    ctx = MockContext(state={})
+
+    event = prepare_free_alt_input._func(ctx, None)
+    output = event.output
+
+    assert "Unknown Course" in output
+    assert "[]" in output

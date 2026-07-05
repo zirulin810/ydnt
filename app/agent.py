@@ -43,10 +43,9 @@ from app.agents_llm import (
     verdict_agent,
 )
 from app.nodes import (
-    budget_gate,
     fetch_page_node,
     insufficient_verdict,
-    quick_verdict,
+    prepare_free_alt_input,
     rubric_scoring_node,
     security_screen,
 )
@@ -66,12 +65,10 @@ root_agent = Workflow(
             route="insufficient",
         ),
         Edge(from_node=security_screen, to_node=parse_course),
-        Edge(from_node=parse_course, to_node=budget_gate),
-        # Path A: Fast, cost-saving path for low-cost, low-risk courses
-        Edge(from_node=budget_gate, to_node=quick_verdict, route="quick"),
-        # Path B: Full analysis path for high-cost or high-risk courses
-        Edge(from_node=budget_gate, to_node=instructor_verify, route="full"),
-        Edge(from_node=instructor_verify, to_node=free_alt_score),
+        # Full linear analysis path
+        Edge(from_node=parse_course, to_node=instructor_verify),
+        Edge(from_node=instructor_verify, to_node=prepare_free_alt_input),
+        Edge(from_node=prepare_free_alt_input, to_node=free_alt_score),
         Edge(from_node=free_alt_score, to_node=rubric_scoring_node),
         Edge(from_node=rubric_scoring_node, to_node=verdict_agent),
     ],
