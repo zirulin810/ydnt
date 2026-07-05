@@ -181,20 +181,25 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
             f"fetch_sales_page requires a valid HTTP/HTTPS URL in live mode: {url_or_case}"
         )
 
-    jina_url = f"https://r.jina.ai/{url_or_case}"
     jina_api_key = os.getenv("JINA_API_KEY")
     
+    def fetch_from_jina(url: str, return_markdown: bool = False) -> str:
+        jina_url = f"https://r.jina.ai/{url}"
+        headers = {"X-Timeout": "15"}
+        if return_markdown:
+            headers["X-Return-Format"] = "markdown"
+        if jina_api_key:
+            headers["Authorization"] = f"Bearer {jina_api_key}"
+        response = httpx.get(jina_url, headers=headers, timeout=25.0, follow_redirects=True)
+        response.raise_for_status()
+        return response.text.strip()
+
     errors = []
     results = []
 
     # Attempt 1: Default headers (no format specified)
     try:
-        headers_1 = {}
-        if jina_api_key:
-            headers_1["Authorization"] = f"Bearer {jina_api_key}"
-        response = httpx.get(jina_url, headers=headers_1, timeout=20.0, follow_redirects=True)
-        response.raise_for_status()
-        text = response.text.strip()
+        text = fetch_from_jina(url_or_case, return_markdown=False)
         if text:
             results.append(text)
     except Exception as e:
@@ -206,26 +211,62 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
     if needs_attempt_2:
         # Attempt 2: X-Return-Format: markdown
         try:
-            headers_2 = {"X-Return-Format": "markdown"}
-            if jina_api_key:
-                headers_2["Authorization"] = f"Bearer {jina_api_key}"
-            response = httpx.get(jina_url, headers=headers_2, timeout=20.0, follow_redirects=True)
-            response.raise_for_status()
-            text = response.text.strip()
+            text = fetch_from_jina(url_or_case, return_markdown=True)
             if text:
                 results.append(text)
         except Exception as e:
             errors.append(f"Attempt 2 failed: {e}")
 
-    # Return the longer of the non-empty results, cleaning whitespaces
+    # Select the best result from the first phase
+    best_result = ""
     if results:
         results.sort(key=len, reverse=True)
-        longest = results[0]
-        cleaned = re.sub(r"\s+", " ", longest).strip()
+        best_result = results[0]
+
+    # Detect if the best result is still like a partial page / has loading
+    text_lower = best_result.lower() if best_result else ""
+    has_loading = any(ind in text_lower for ind in ["loading...", "loading data", "please wait", "citation loading"])
+    is_partial = (not best_result) or (len(best_result) < 1200) or has_loading
+
+    if is_partial:
+        # Cache-bypass retry attempt
+        try:
+            import time
+            ts = int(time.time())
+            sep = "&" if "?" in url_or_case else "?"
+            bypass_url = f"{url_or_case}{sep}t={ts}"
+            
+            bypass_results = []
+            try:
+                text_bp = fetch_from_jina(bypass_url, return_markdown=False)
+                if text_bp:
+                    bypass_results.append(text_bp)
+            except Exception as e:
+                errors.append(f"Bypass Attempt 1 failed: {e}")
+                
+            if (not bypass_results) or (len(bypass_results[0]) < 800):
+                try:
+                    text_bp_fb = fetch_from_jina(bypass_url, return_markdown=True)
+                    if text_bp_fb:
+                        bypass_results.append(text_bp_fb)
+                except Exception as e:
+                    errors.append(f"Bypass Attempt 2 failed: {e}")
+            
+            if bypass_results:
+                bypass_results.sort(key=len, reverse=True)
+                bp_best = bypass_results[0]
+                # Compare length to previous best and keep the longer one
+                if len(bp_best) > len(best_result):
+                    best_result = bp_best
+        except Exception as e:
+            errors.append(f"Cache-bypass flow failed: {e}")
+
+    if best_result:
+        cleaned = re.sub(r"\s+", " ", best_result).strip()
         if cleaned:
             return cleaned
 
-    err_msg = "; ".join(errors) or "Returned empty content from both attempts."
+    err_msg = "; ".join(errors) or "Returned empty content from all attempts."
     raise RuntimeError(
         f"Live sales page fetch failed for {url_or_case}: {err_msg}"
     )

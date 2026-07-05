@@ -286,3 +286,62 @@ def test_get_youtube_transcript_truncation(monkeypatch) -> None:
     assert result.endswith("[TRUNCATED]")
     assert result.startswith("A" * MAX_TRANSCRIPT_CHARS)
 
+
+def test_live_mode_fetch_sales_page_headers_x_timeout(monkeypatch) -> None:
+    """Verifies that the GET request to Jina Reader includes the X-Timeout: 15 header."""
+    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+
+    headers_captured = []
+
+    def mock_get(url, *args, **kwargs):
+        headers = kwargs.get("headers", {})
+        headers_captured.append(headers)
+        return httpx.Response(200, text="A" * 1500, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx, "get", mock_get)
+
+    result = fetch_sales_page("https://example.com/course")
+    assert len(headers_captured) >= 1
+    assert headers_captured[0].get("X-Timeout") == "15"
+
+
+def test_live_mode_fetch_sales_page_cache_bypass_retry(monkeypatch) -> None:
+    """Verifies the safety net: if initial fetches return loading screen/short text,
+
+    it triggers a cache-bypass retry with a timestamp parameter and returns the full result.
+    """
+    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+
+    requests_captured = []
+
+    def mock_get(url, *args, **kwargs):
+        requests_captured.append((url, kwargs.get("headers", {})))
+        headers = kwargs.get("headers", {})
+
+        # Check if the URL has cache bypass query parameter "t="
+        if "t=" in url:
+            # Bypass request: returns the full course page
+            return httpx.Response(200, text="Complete course content! " * 80, request=httpx.Request("GET", url))
+
+        # Initial request: returns a "loading" / short text
+        if "X-Return-Format" not in headers:
+            return httpx.Response(200, text="Loading... please wait.", request=httpx.Request("GET", url))
+        else:
+            return httpx.Response(200, text="Short fallback text", request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx, "get", mock_get)
+
+    result = fetch_sales_page("https://example.com/course")
+
+    # We expect 3 requests total:
+    # 1. Initial default: returns "Loading... please wait."
+    # 2. Initial markdown fallback: returns "Short fallback text"
+    # 3. Cache-bypassed default (since initial results were < 1200 and had "Loading"): returns full text
+    assert len(requests_captured) >= 3
+
+    bypass_url, bypass_headers = requests_captured[-1]
+    assert "t=" in bypass_url
+    assert bypass_headers.get("X-Timeout") == "15"
+
+    assert "Complete course content!" in result
+
