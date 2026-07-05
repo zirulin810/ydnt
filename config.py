@@ -5,6 +5,7 @@ read here and only here. Other modules import from this module instead of
 calling os.getenv() directly. This ensures a single source of truth and
 fail-fast behavior when required variables are missing.
 """
+
 from __future__ import annotations
 
 import os
@@ -43,7 +44,7 @@ DEFAULT_BUDGET_CAP: float = float(os.getenv("DEFAULT_BUDGET_CAP", "50.0"))
 # Mock / Development
 # ---------------------------------------------------------------------------
 # Set USE_MOCK=0 to disable cached responses (default: 1 / True)
-USE_MOCK: bool = os.getenv("USE_MOCK", "1") == "1" or not YOUTUBE_API_KEY
+USE_MOCK: bool = os.getenv("USE_MOCK", "1") == "1"
 
 # Cache directory for mock data
 CACHE_DIR: str = os.getenv("CACHE_DIR", "cache")
