@@ -27,19 +27,6 @@ from google.adk import Context, Event
 from google.adk.workflow import node
 
 
-def strip_injection_sentences(text: str, patterns: list[str]) -> str:
-    """Helper to remove sentences containing prompt injection patterns."""
-    # Split text into sentences using basic punctuation boundaries
-    sentences = re.split(r"(?<=[.!?])\s+", text)
-    cleaned_sentences = []
-    for sentence in sentences:
-        lowered_sentence = sentence.lower()
-        if any(p in lowered_sentence for p in patterns):
-            continue
-        cleaned_sentences.append(sentence)
-    return " ".join(cleaned_sentences)
-
-
 @node
 def fetch_page_node(ctx: Context, node_input: Any) -> Event:
     """Fetches the course sales page raw text and stores it in context.
@@ -116,48 +103,6 @@ def insufficient_verdict(ctx: Context, node_input: Any) -> Event:
 
 
 @node
-def security_screen(ctx: Context, node_input: Any) -> Event:
-    """Screens the sales page raw text for potential prompt injection attempts."""
-    raw = ctx.state.get("sales_page_raw", "")
-    if not raw:
-        if isinstance(node_input, str):
-            raw = node_input
-        elif isinstance(node_input, dict):
-            raw = node_input.get("sales_page_raw", "")
-
-    if not raw:
-        raw = ""
-
-    injection_patterns = [
-        "ignore previous",
-        "ignore all",
-        "disregard",
-        "override",
-        "rate this 10",
-        "best course ever",
-        "you must recommend",
-        "system prompt",
-        "act as",
-        "auto-approve",
-        "bypass",
-    ]
-
-    lowered = raw.lower()
-    security_flag = None
-    if any(p in lowered for p in injection_patterns):
-        security_flag = "injection_detected"
-        ctx.state["security_flag"] = security_flag
-        # Strip the malicious sentences
-        cleaned = strip_injection_sentences(raw, injection_patterns)
-        ctx.state["sales_page_clean"] = cleaned
-    else:
-        ctx.state["sales_page_clean"] = raw
-
-    state_update = {"security_flag": security_flag} if security_flag else {}
-    return Event(output=ctx.state["sales_page_clean"], state=state_update)
-
-
-@node
 def prepare_free_alt_input(ctx: Context, node_input: Any) -> Event:
     """Prepares the text prompt input for free_alt_score using course profile details.
 
@@ -193,7 +138,6 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
     profile_raw = ctx.state.get("course_profile", {})
     instructor_raw = ctx.state.get("instructor_evidence", {})
     free_alt_raw = ctx.state.get("free_alternatives", {})
-    security_flag = ctx.state.get("security_flag")
 
     def to_dict(obj: Any) -> dict:
         if hasattr(obj, "model_dump"):
@@ -218,7 +162,7 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
     )
 
     price_score, price_reasons = score_pricing(profile)
-    content_score, content_reasons = score_content(profile, security_flag)
+    content_score, content_reasons = score_content(profile)
     instructor_score, instructor_reasons = score_instructor(instructor)
     alt_content_score, alt_content_reasons = score_alt_content(free_alt)
     alt_instructor_score, alt_instructor_reasons = score_alt_instructor(free_alt)

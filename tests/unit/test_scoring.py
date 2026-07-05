@@ -66,12 +66,12 @@ def test_score_pricing() -> None:
 
 def test_score_content() -> None:
     """Tests score_content veto conditions (returning 1) and quality levels (2-5)."""
-    # 1. Veto condition: security flag injection_detected
-    score, reasons = score_content({"promised_outcome": "skill"}, "injection_detected")
+    # 1. Veto condition: manipulation_attempt is True
+    score, reasons = score_content({"promised_outcome": "skill", "manipulation_attempt": True})
     assert score == 1
 
     # 2. Veto condition: recruitment_signal is True
-    score, reasons = score_content({"recruitment_signal": True, "promised_outcome": "skill"}, None)
+    score, reasons = score_content({"recruitment_signal": True, "promised_outcome": "skill"})
     assert score == 1
 
     # 3. Veto condition: Recursive Theme (income outcome + monetization syllabus)
@@ -79,7 +79,7 @@ def test_score_content() -> None:
         "promised_outcome": "income",
         "syllabus": ["Audience monetization strategies", "How to sell courses"],
     }
-    score, reasons = score_content(recursive_profile, None)
+    score, reasons = score_content(recursive_profile)
     assert score == 1
 
     # 4. Veto condition: Income Promises + Scarcity Manipulation
@@ -87,7 +87,7 @@ def test_score_content() -> None:
         "promised_outcome": "income",
         "scarcity_signals": ["only 2 spots left"],
     }
-    score, reasons = score_content(income_scarcity_profile, None)
+    score, reasons = score_content(income_scarcity_profile)
     assert score == 1
 
     # Non-veto quality checks: must return 2-5, never 1
@@ -96,7 +96,7 @@ def test_score_content() -> None:
         "promised_outcome": "skill",
         "syllabus": ["Intro", "Setup"],
     }
-    score, reasons = score_content(skill_profile, None)
+    score, reasons = score_content(skill_profile)
     assert score >= 2
 
     # Income course without scarcity or recursive topics
@@ -105,7 +105,7 @@ def test_score_content() -> None:
         "syllabus": ["Financial Literacy Basics"],
         "scarcity_signals": [],
     }
-    score, reasons = score_content(income_clean_profile, None)
+    score, reasons = score_content(income_clean_profile)
     assert score >= 2
 
     # High quality skill course
@@ -114,23 +114,23 @@ def test_score_content() -> None:
         "syllabus": ["Intro", "Setup", "Coding", "Testing", "Deployment"],
         "scarcity_signals": [],
     }
-    score, reasons = score_content(high_quality_profile, None)
+    score, reasons = score_content(high_quality_profile)
     assert score == 5
 
 
 def test_score_content_reasons_ground_truth() -> None:
     """Tests that score_content reasons contain correct ground-truth assertions."""
-    # score_content(injection) → 回傳含一條 red 且 message 含 "Injection";score==1 時無 green。
-    score, reasons = score_content({"promised_outcome": "skill"}, "injection_detected")
+    # score_content(manipulation_attempt) → 回傳含一條 red 且 message 含 "Manipulation"; score==1 時無 green。
+    score, reasons = score_content({"promised_outcome": "skill", "manipulation_attempt": True})
     assert score == 1
     red_reasons = [r for r in reasons if r.severity == "red"]
     green_reasons = [r for r in reasons if r.severity == "green"]
     assert len(red_reasons) == 1
-    assert "Injection" in red_reasons[0].message
+    assert "Manipulation" in red_reasons[0].message
     assert len(green_reasons) == 0
 
     # score_content(recruitment) → 含 "MLM" red、無 green。
-    score, reasons = score_content({"recruitment_signal": True, "promised_outcome": "skill"}, None)
+    score, reasons = score_content({"recruitment_signal": True, "promised_outcome": "skill"})
     assert score == 1
     red_reasons = [r for r in reasons if r.severity == "red"]
     green_reasons = [r for r in reasons if r.severity == "green"]
@@ -265,7 +265,7 @@ def test_decide_mode_veto_flags() -> None:
     scores = {"content_score": 1}
     reasons = {
         "content": [
-            Reason("red", "Prompt Injection Detected: Malicious injection attempt blocked."),
+            Reason("red", "Manipulation Attempt: Sales page tries to manipulate the AI reviewer."),
             Reason("green", "Teaches concrete technical or business skills.")
         ],
         "instructor": [
@@ -275,7 +275,7 @@ def test_decide_mode_veto_flags() -> None:
     mode, red_flags, green_flags = decide_mode(scores, reasons)
     assert mode == "A_should_not"
     assert len(red_flags) == 1
-    assert "Injection" in red_flags[0]
+    assert "Manipulation" in red_flags[0]
     assert green_flags == []
 
 

@@ -51,7 +51,7 @@ def score_pricing(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
         return 1, []
 
 
-def score_content(profile: dict[str, Any], security_flag: str | None) -> tuple[int, list[Reason]]:
+def score_content(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
     """Scores course content value and safety from 1 to 5.
 
     Design: Returning 1 if and only if any toxicity/veto signals occur.
@@ -73,10 +73,11 @@ def score_content(profile: dict[str, Any], security_flag: str | None) -> tuple[i
     )
     scarcity_signals = profile.get("scarcity_signals", [])
     recruitment_signal = profile.get("recruitment_signal", False)
+    manipulation_attempt = profile.get("manipulation_attempt", False)
 
     # Toxicity check: force return 1 if any veto condition matches
     if (
-        security_flag == "injection_detected"
+        manipulation_attempt
         or recruitment_signal
         or is_recursive
         or (promised_outcome == "income" and scarcity_signals)
@@ -104,8 +105,8 @@ def score_content(profile: dict[str, Any], security_flag: str | None) -> tuple[i
 
     reasons = []
     if score == 1:
-        if security_flag == "injection_detected":
-            reasons.append(Reason("red", "Prompt Injection Detected: Malicious injection attempt blocked."))
+        if manipulation_attempt:
+            reasons.append(Reason("red", "Manipulation Attempt: Sales page tries to manipulate the AI reviewer."))
         if recruitment_signal:
             reasons.append(Reason("red", "Recruitment MLM: Promotes students to become resellers/coaches."))
         if is_recursive:

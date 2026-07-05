@@ -47,7 +47,6 @@ from app.nodes import (
     insufficient_verdict,
     prepare_free_alt_input,
     rubric_scoring_node,
-    security_screen,
 )
 
 # ---------------------------------------------------------------------------
@@ -58,13 +57,12 @@ root_agent = Workflow(
     edges=[
         # Phase 1: Input ingestion, cleaning, and gate routing
         Edge(from_node=START, to_node=fetch_page_node),
-        Edge(from_node=fetch_page_node, to_node=security_screen, route="ok"),
+        Edge(from_node=fetch_page_node, to_node=parse_course, route="ok"),
         Edge(
             from_node=fetch_page_node,
             to_node=insufficient_verdict,
             route="insufficient",
         ),
-        Edge(from_node=security_screen, to_node=parse_course),
         # Full linear analysis path
         Edge(from_node=parse_course, to_node=instructor_verify),
         Edge(from_node=instructor_verify, to_node=prepare_free_alt_input),
