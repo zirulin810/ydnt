@@ -28,7 +28,7 @@ class CourseProfile(BaseModel):
     """Profile of the online course extracted from the sales page."""
 
     title: str = Field(description="The title of the online course.")
-    instructor: str = Field(description="The name of the instructor/speaker.")
+    creator: str = Field(description="The name of the creator (individual or institution/organization).")
     platform: str = Field(
         description="The host platform, e.g., skool, whop, gumroad, udemy, youtube."
     )
@@ -54,11 +54,11 @@ class CourseProfile(BaseModel):
     )
 
 
-class InstructorEvidence(BaseModel):
-    """Evidence about the instructor's background and footprint."""
+class CreatorEvidence(BaseModel):
+    """Evidence about the creator's background and footprint."""
 
     footprint: Literal["strong", "medium", "weak"] = Field(
-        description="The strength of the instructor's independent online presence."
+        description="The strength of the creator's independent online presence."
     )
     github_real_work: bool = Field(
         description="Whether verifiable real work or contributions exist on GitHub."
@@ -67,11 +67,11 @@ class InstructorEvidence(BaseModel):
         description="Whether verifiable professional employment or company ownership is found."
     )
     only_sells_courses: bool = Field(
-        description="Whether the instructor's only verifiable achievement is selling courses."
+        description="Whether the creator's only verifiable achievement is selling courses."
     )
     evidence_links: list[str] = Field(
         default_factory=list,
-        description="Verifiable links proving the instructor's footprint/evidence.",
+        description="Verifiable links proving the creator's footprint/evidence.",
     )
 
 

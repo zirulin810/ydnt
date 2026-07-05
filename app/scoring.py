@@ -135,8 +135,8 @@ def score_content(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
     return score, reasons
 
 
-def score_instructor(evidence: dict[str, Any]) -> tuple[int, list[Reason]]:
-    """Scores instructor credibility and footprint from 1 to 5.
+def score_creator(evidence: dict[str, Any]) -> tuple[int, list[Reason]]:
+    """Scores creator credibility and footprint from 1 to 5.
 
     Design: Relies on verifiable hard facts (GitHub real work or employment)
     rather than subjective footprint tags.
@@ -162,9 +162,9 @@ def score_instructor(evidence: dict[str, Any]) -> tuple[int, list[Reason]]:
 
     reasons = []
     if footprint == "weak" and only_sells:
-        reasons.append(Reason("red", "Weak Footprint: Instructor has no notable independent professional achievements."))
+        reasons.append(Reason("red", "Weak Footprint: Creator has no notable independent professional achievements."))
     elif github or employment:
-        reasons.append(Reason("green", "Credible Instructor: Active GitHub or professional employment."))
+        reasons.append(Reason("green", "Credible Creator: Active GitHub or professional employment."))
 
     return score, reasons
 
@@ -210,8 +210,8 @@ def score_alt_content(free_alt: dict[str, Any]) -> tuple[int, list[Reason]]:
     return score, reasons
 
 
-def score_alt_instructor(free_alt: dict[str, Any]) -> tuple[int, list[Reason]]:
-    """Scores alternative instructors' credibility from 1 to 5.
+def score_alt_creator(free_alt: dict[str, Any]) -> tuple[int, list[Reason]]:
+    """Scores alternative creators' credibility from 1 to 5.
 
     Design: Rates alternative sources based on structural quality.
     """
@@ -235,13 +235,13 @@ def decide_mode(
 ) -> tuple[str, list[str], list[str]]:
     """Determines final due diligence mode, red flags, and green flags based on scores and reasons."""
     content_score = scores.get("content_score", 3)
-    instructor_score = scores.get("instructor_score", 1)
+    creator_score = scores.get("creator_score", 1)
     alt_content_score = scores.get("alt_content_score", 1)
 
     # mode:與現在完全相同的分數判定(不變)
     if content_score == 1:
         mode = "should_not"
-    elif content_score >= 3 and instructor_score >= 4 and alt_content_score <= content_score:
+    elif content_score >= 3 and creator_score >= 4 and alt_content_score <= content_score:
         mode = "worth_buying"
     else:
         mode = "need_not"

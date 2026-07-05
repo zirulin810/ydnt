@@ -24,8 +24,8 @@ from google.adk.apps import App
 from google.adk.workflow import START, Edge, Workflow
 
 from app.agents_llm import (
+    creator_verify,
     free_alt_score,
-    instructor_verify,
     parse_course,
     verdict_agent,
 )
@@ -52,8 +52,8 @@ root_agent = Workflow(
             route="insufficient",
         ),
         # Full linear analysis path
-        Edge(from_node=parse_course, to_node=instructor_verify),
-        Edge(from_node=instructor_verify, to_node=prepare_free_alt_input),
+        Edge(from_node=parse_course, to_node=creator_verify),
+        Edge(from_node=creator_verify, to_node=prepare_free_alt_input),
         Edge(from_node=prepare_free_alt_input, to_node=free_alt_score),
         Edge(from_node=free_alt_score, to_node=rubric_scoring_node),
         Edge(from_node=rubric_scoring_node, to_node=verdict_agent),

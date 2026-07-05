@@ -36,7 +36,7 @@ YDNT 採用 ADK 2.0 狀態圖 (Workflow Graph) 設計，確保非確定性的 AI
 [insufficient_     [parse_course]      LlmAgent：解析頁面 → CourseProfile
  verdict](END)          │              （prompt 衛生 + 抽取 manipulation_attempt）
  @node：無法分析         ▼
-                 [instructor_verify]   LlmAgent：查 GitHub / web / YouTube 足跡
+                 [creator_verify]      LlmAgent：查 GitHub / web / YouTube 足跡
                         │
                         ▼
               [prepare_free_alt_input] @node：把 course profile 注入下游查詢

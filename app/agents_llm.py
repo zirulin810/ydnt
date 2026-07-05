@@ -31,7 +31,7 @@ from app.mcp_server import (
     verify_github_user,
     web_search,
 )
-from app.schemas import CourseProfile, FreeAlternatives, InstructorEvidence, Verdict
+from app.schemas import CourseProfile, CreatorEvidence, FreeAlternatives, Verdict
 from config import MODEL_JUDGMENT, MODEL_ROUTING
 
 # Centralized retry options for model requests
@@ -59,7 +59,7 @@ parse_course = LlmAgent(
         "\n"
         "Identify:\n"
         "- Title of the course\n"
-        "- Instructor/speaker name\n"
+        "- Creator/speaker name\n"
         "- Platform it is hosted on (e.g. skool, whop, gumroad, udemy, youtube)\n"
         "- Price in USD (if not explicitly mentioned, estimate or set to 0.0)\n"
         "- Promised outcome (Literal 'income' for promises of making money, 'skill' for learning a skill, or 'unknown')\n"
@@ -78,39 +78,39 @@ parse_course = LlmAgent(
 )
 
 # ---------------------------------------------------------------------------
-# 2. instructor_verify
+# 2. creator_verify
 # ---------------------------------------------------------------------------
-instructor_verify = LlmAgent(
-    name="instructor_verify",
+creator_verify = LlmAgent(
+    name="creator_verify",
     model=Gemini(
         model=MODEL_JUDGMENT,
         retry_options=_RETRY_OPTIONS,
     ),
     instruction=(
         "You are a due diligence investigator. Your task is to verify the online presence, background, "
-        "and achievements of the course instructor.\n"
+        "and achievements of the course creator.\n"
         "\n"
         "INVESTIGATION RULES & TOOL CONSTRAINTS:\n"
-        "1. CALL `verify_github_user` EXACTLY ONCE to inspect the instructor's GitHub footprint. If you do not know "
+        "1. CALL `verify_github_user` EXACTLY ONCE to inspect the creator's GitHub footprint. If you do not know "
         "a specific GitHub handle, try searching with their name or a reasonable guess, but you MUST call this tool "
         "exactly once.\n"
-        "2. Limit `web_search` to AT MOST 2 to 3 targeted, non-overlapping queries (e.g., 'Instructor Name background', "
-        "'Instructor Name company'). Synthesize after these searches; do not exhaustively search.\n"
+        "2. Limit `web_search` to AT MOST 2 to 3 targeted, non-overlapping queries (e.g., 'Creator Name background', "
+        "'Creator Name company'). Synthesize after these searches; do not exhaustively search.\n"
         "3. IF A `web_search` RETURNS EMPTY RESULTS (`[]`), treat this immediately as 'no verifiable online footprint found'. "
         "Do NOT retry with variations, synonyms, or different query formulations. Simply record the absence of findings and continue.\n"
         "4. DO NOT hallucinate. Do not make up links, professional footprint details, or achievements. All findings in your "
-        "structured InstructorEvidence output must be backed strictly by the tools' actual responses.\n"
+        "structured CreatorEvidence output must be backed strictly by the tools' actual responses.\n"
         "\n"
         "Use the provided tools to investigate:\n"
         "- GitHub footprint using verify_github_user.\n"
         "- Verifiable employment or company history using web_search.\n"
         "- YouTube presence using get_channel_stats or transcripts using get_youtube_transcript.\n"
         "\n"
-        "Synthesize your findings and output a structured InstructorEvidence report."
+        "Synthesize your findings and output a structured CreatorEvidence report."
     ),
     tools=[verify_github_user, get_channel_stats, get_youtube_transcript, web_search],
-    output_schema=InstructorEvidence,
-    output_key="instructor_evidence",
+    output_schema=CreatorEvidence,
+    output_key="creator_evidence",
 )
 
 # ---------------------------------------------------------------------------

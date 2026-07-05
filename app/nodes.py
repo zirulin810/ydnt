@@ -136,7 +136,7 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
     Design: Reconstructed as a thin shell delegating to app/scoring.py.
     """
     profile_raw = ctx.state.get("course_profile", {})
-    instructor_raw = ctx.state.get("instructor_evidence", {})
+    creator_raw = ctx.state.get("creator_evidence", {})
     free_alt_raw = ctx.state.get("free_alternatives", {})
 
     def to_dict(obj: Any) -> dict:
@@ -149,36 +149,36 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
         return {}
 
     profile = to_dict(profile_raw)
-    instructor = to_dict(instructor_raw)
+    creator = to_dict(creator_raw)
     free_alt = to_dict(free_alt_raw)
 
     from app.scoring import (
         decide_mode,
         score_alt_content,
-        score_alt_instructor,
+        score_alt_creator,
         score_content,
-        score_instructor,
+        score_creator,
         score_pricing,
     )
 
     price_score, price_reasons = score_pricing(profile)
     content_score, content_reasons = score_content(profile)
-    instructor_score, instructor_reasons = score_instructor(instructor)
+    creator_score, creator_reasons = score_creator(creator)
     alt_content_score, alt_content_reasons = score_alt_content(free_alt)
-    alt_instructor_score, alt_instructor_reasons = score_alt_instructor(free_alt)
+    alt_creator_score, alt_creator_reasons = score_alt_creator(free_alt)
 
     scores = {
         "price_score": price_score,
         "content_score": content_score,
-        "instructor_score": instructor_score,
+        "creator_score": creator_score,
         "alt_content_score": alt_content_score,
-        "alt_instructor_score": alt_instructor_score,
+        "alt_creator_score": alt_creator_score,
     }
 
     reasons = {
         "content": content_reasons,
-        "instructor": instructor_reasons,
-        "alt": alt_content_reasons + alt_instructor_reasons,
+        "creator": creator_reasons,
+        "alt": alt_content_reasons + alt_creator_reasons,
         "pricing": price_reasons,
     }
 
@@ -199,9 +199,9 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
         "high_extraction_cost": high_extraction_cost,
         "price_score": price_score,
         "content_score": content_score,
-        "instructor_score": instructor_score,
+        "creator_score": creator_score,
         "alt_content_score": alt_content_score,
-        "alt_instructor_score": alt_instructor_score,
+        "alt_creator_score": alt_creator_score,
     }
 
     ctx.state["rubric_result"] = rubric_result

@@ -20,9 +20,9 @@ from app.scoring import (
     Reason,
     decide_mode,
     score_alt_content,
-    score_alt_instructor,
+    score_alt_creator,
     score_content,
-    score_instructor,
+    score_creator,
     score_pricing,
 )
 
@@ -138,10 +138,10 @@ def test_score_content_reasons_ground_truth() -> None:
     assert len(green_reasons) == 0
 
 
-def test_score_instructor() -> None:
-    """Tests score_instructor with footprint, GitHub, employment, and course-selling flags."""
+def test_score_creator() -> None:
+    """Tests score_creator with footprint, GitHub, employment, and course-selling flags."""
     # No footprint or credentials (analogous to exists = False)
-    score, reasons = score_instructor(
+    score, reasons = score_creator(
         {
             "footprint": "weak",
             "github_real_work": False,
@@ -151,13 +151,13 @@ def test_score_instructor() -> None:
     assert score == 1
 
     # Verifiable professional work or employment
-    score, reasons = score_instructor({"github_real_work": True, "verifiable_employment": False})
+    score, reasons = score_creator({"github_real_work": True, "verifiable_employment": False})
     assert score >= 4
-    score, reasons = score_instructor({"github_real_work": False, "verifiable_employment": True})
+    score, reasons = score_creator({"github_real_work": False, "verifiable_employment": True})
     assert score >= 4
 
     # Weak footprint and only sells courses
-    score, reasons = score_instructor(
+    score, reasons = score_creator(
         {
             "footprint": "weak",
             "github_real_work": False,
@@ -168,13 +168,13 @@ def test_score_instructor() -> None:
     assert score == 2
 
 
-def test_score_instructor_reasons_ground_truth() -> None:
-    """Tests that score_instructor reasons contain correct ground-truth assertions."""
-    # score_instructor(github/employment) → 含 "Credible" green。
-    score, reasons = score_instructor({"github_real_work": True, "verifiable_employment": False})
+def test_score_creator_reasons_ground_truth() -> None:
+    """Tests that score_creator reasons contain correct ground-truth assertions."""
+    # score_creator(github/employment) → 含 "Credible" green。
+    score, reasons = score_creator({"github_real_work": True, "verifiable_employment": False})
     assert any("Credible" in r.message and r.severity == "green" for r in reasons)
 
-    score, reasons = score_instructor({"github_real_work": False, "verifiable_employment": True})
+    score, reasons = score_creator({"github_real_work": False, "verifiable_employment": True})
     assert any("Credible" in r.message and r.severity == "green" for r in reasons)
 
 
@@ -205,25 +205,25 @@ def test_score_alt_content() -> None:
     assert score <= 3
 
 
-def test_score_alt_instructor() -> None:
-    """Tests score_alt_instructor boundary conditions."""
+def test_score_alt_creator() -> None:
+    """Tests score_alt_creator boundary conditions."""
     # No alternatives found
-    score, reasons = score_alt_instructor({"items": []})
+    score, reasons = score_alt_creator({"items": []})
     assert score == 1
     assert reasons == []
 
     # Alternative is a content farm
-    score, reasons = score_alt_instructor({"items": [{"content_farm_flag": True}]})
+    score, reasons = score_alt_creator({"items": [{"content_farm_flag": True}]})
     assert score == 2
     assert reasons == []
 
     # High extraction cost
-    score, reasons = score_alt_instructor({"items": [{"extraction_cost": "high"}]})
+    score, reasons = score_alt_creator({"items": [{"extraction_cost": "high"}]})
     assert score == 3
     assert reasons == []
 
     # Clean alternative source
-    score, reasons = score_alt_instructor(
+    score, reasons = score_alt_creator(
         {"items": [{"extraction_cost": "low", "content_farm_flag": False}]}
     )
     assert score == 5
@@ -233,28 +233,28 @@ def test_score_alt_instructor() -> None:
 def test_decide_mode_scores_only() -> None:
     """Tests decide_mode to ensure decision branches are derived solely from scores."""
     # 1. content_score == 1 -> should_not
-    scores = {"content_score": 1, "instructor_score": 5, "alt_content_score": 2}
+    scores = {"content_score": 1, "creator_score": 5, "alt_content_score": 2}
     mode, red_flags, green_flags = decide_mode(scores, {})
     assert mode == "should_not"
 
-    # 2. worth_buying (content_score >= 3, instructor_score >= 4, alt_content_score <= content_score)
-    scores = {"content_score": 3, "instructor_score": 4, "alt_content_score": 2}
+    # 2. worth_buying (content_score >= 3, creator_score >= 4, alt_content_score <= content_score)
+    scores = {"content_score": 3, "creator_score": 4, "alt_content_score": 2}
     mode, red_flags, green_flags = decide_mode(scores, {})
     assert mode == "worth_buying"
 
     # 3. need_not (otherwise)
     # E.g. content_score too low (< 3)
-    scores = {"content_score": 2, "instructor_score": 5, "alt_content_score": 2}
+    scores = {"content_score": 2, "creator_score": 5, "alt_content_score": 2}
     mode, red_flags, green_flags = decide_mode(scores, {})
     assert mode == "need_not"
 
-    # E.g. instructor_score too low (< 4)
-    scores = {"content_score": 4, "instructor_score": 3, "alt_content_score": 2}
+    # E.g. creator_score too low (< 4)
+    scores = {"content_score": 4, "creator_score": 3, "alt_content_score": 2}
     mode, red_flags, green_flags = decide_mode(scores, {})
     assert mode == "need_not"
 
     # E.g. alt_content_score > content_score (free alternatives coverage outweighs course quality)
-    scores = {"content_score": 3, "instructor_score": 5, "alt_content_score": 4}
+    scores = {"content_score": 3, "creator_score": 5, "alt_content_score": 4}
     mode, red_flags, green_flags = decide_mode(scores, {})
     assert mode == "need_not"
 
@@ -268,8 +268,8 @@ def test_decide_mode_veto_flags() -> None:
             Reason("red", "Manipulation Attempt: Sales page tries to manipulate the AI reviewer."),
             Reason("green", "Teaches concrete technical or business skills.")
         ],
-        "instructor": [
-            Reason("red", "Weak Footprint: Instructor has no notable independent professional achievements.")
+        "creator": [
+            Reason("red", "Weak Footprint: Creator has no notable independent professional achievements.")
         ]
     }
     mode, red_flags, green_flags = decide_mode(scores, reasons)
@@ -282,14 +282,14 @@ def test_decide_mode_veto_flags() -> None:
 def test_decide_mode_non_veto_flags() -> None:
     """Tests that decide_mode collects all reasons and separates them by severity when not vetoed."""
     # 非 veto → 匯集所有理由並依 severity 拆分。
-    scores = {"content_score": 3, "instructor_score": 4, "alt_content_score": 2}
+    scores = {"content_score": 3, "creator_score": 4, "alt_content_score": 2}
     reasons = {
         "content": [
             Reason("green", "Teaches concrete technical or business skills."),
             Reason("red", "Income Promises: Marketing promises financial earnings.")
         ],
-        "instructor": [
-            Reason("green", "Credible Instructor: Active GitHub or professional employment.")
+        "creator": [
+            Reason("green", "Credible Creator: Active GitHub or professional employment.")
         ],
         "alt": [
             Reason("red", "Content Farm: Free alternatives are bloated or low-quality.")
