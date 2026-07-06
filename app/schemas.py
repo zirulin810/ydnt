@@ -28,11 +28,13 @@ class CourseProfile(BaseModel):
     """Profile of the online course extracted from the sales page."""
 
     title: str = Field(description="The title of the online course.")
-    creator: str = Field(description="The name of the creator (individual or institution/organization).")
+    creator: str = Field(
+        description="The individual or organization responsible for the course (e.g. instructor, producer, or company/institution owning the course). This is distinct from the hosting platform or marketplace (which goes in platform). For official/institutional courses, the organization is the creator, even if it shares the name with the hosting platform."
+    )
     platform: str = Field(
         description="The host platform, e.g., skool, whop, gumroad, udemy, youtube."
     )
-    price_usd: float | None = Field(description="The price of the course in USD, or null if not found.")
+    price_usd: float | None = Field(default=None, description="The price of the course in USD, or null if not found.")
     promised_outcome: Literal["income", "skill", "unknown"] = Field(
         description="The type of outcome promised: making income/money or learning a skill."
     )
