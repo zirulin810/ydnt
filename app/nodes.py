@@ -20,7 +20,6 @@ This includes injection screening, budget routing, quick verdict, and the rubric
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from google.adk import Context, Event
@@ -312,7 +311,7 @@ async def triage_course(ctx: Context, node_input: Any):
                 try:
                     resolved["price"] = float(clean_price)
                 except ValueError:
-                    reason = f"User could not provide the price; due diligence cannot proceed without it."
+                    reason = "User could not provide the price; due diligence cannot proceed without it."
                     ctx.state["insufficient_reason"] = reason
                     yield Event(route="insufficient", state={"insufficient_reason": reason})
                     return

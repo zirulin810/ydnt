@@ -182,7 +182,7 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
         )
 
     jina_api_key = JINA_API_KEY
-    
+
     def fetch_from_jina(url: str, return_markdown: bool = False) -> str:
         jina_url = f"https://r.jina.ai/{url}"
         headers = {"X-Timeout": "15"}
@@ -235,7 +235,7 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
             ts = int(time.time())
             sep = "&" if "?" in url_or_case else "?"
             bypass_url = f"{url_or_case}{sep}t={ts}"
-            
+
             bypass_results = []
             try:
                 text_bp = fetch_from_jina(bypass_url, return_markdown=False)
@@ -243,7 +243,7 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
                     bypass_results.append(text_bp)
             except Exception as e:
                 errors.append(f"Bypass Attempt 1 failed: {e}")
-                
+
             if (not bypass_results) or (len(bypass_results[0]) < 800):
                 try:
                     text_bp_fb = fetch_from_jina(bypass_url, return_markdown=True)
@@ -251,7 +251,7 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
                         bypass_results.append(text_bp_fb)
                 except Exception as e:
                     errors.append(f"Bypass Attempt 2 failed: {e}")
-            
+
             if bypass_results:
                 bypass_results.sort(key=len, reverse=True)
                 bp_best = bypass_results[0]
@@ -450,7 +450,7 @@ class DuckDuckGoHTMLParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
         class_name = attrs_dict.get("class", "")
-        
+
         # If it's a result title anchor
         if tag == "a" and "result__a" in class_name:
             # Save any unsaved previous result
@@ -463,7 +463,7 @@ class DuckDuckGoHTMLParser(HTMLParser):
             self.current_result = {}
             self.recording_title = True
             self.title_parts = []
-            
+
             raw_url = attrs_dict.get("href", "")
             url = raw_url
             if "uddg=" in raw_url:
@@ -472,7 +472,7 @@ class DuckDuckGoHTMLParser(HTMLParser):
                 if "uddg" in qs:
                     url = qs["uddg"][0]
             self.current_result["url"] = url
-            
+
         elif "result__snippet" in class_name:
             self.recording_snippet = True
             self.snippet_tag = tag
@@ -491,7 +491,7 @@ class DuckDuckGoHTMLParser(HTMLParser):
         elif self.recording_snippet and tag == self.snippet_tag:
             self.recording_snippet = False
             self.current_result["snippet"] = "".join(self.snippet_parts).strip()
-            
+
             # Since snippet usually comes after title, save the result now
             if "title" in self.current_result and "url" in self.current_result:
                 self.results.append({
@@ -516,7 +516,7 @@ def _live_web_search(query: str) -> list[dict[str, Any]]:
 
     parser = DuckDuckGoHTMLParser()
     parser.feed(resp.text)
-    
+
     # Save the last result if it wasn't appended
     if "title" in parser.current_result and "url" in parser.current_result:
         parser.results.append({
@@ -524,7 +524,7 @@ def _live_web_search(query: str) -> list[dict[str, Any]]:
             "url": parser.current_result.get("url", ""),
             "snippet": parser.current_result.get("snippet", ""),
         })
-        
+
     return parser.results
 
 

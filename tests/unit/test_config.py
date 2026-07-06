@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import os
+
 import google.auth
 from google.auth.exceptions import DefaultCredentialsError
 
