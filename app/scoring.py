@@ -59,29 +59,11 @@ def score_content(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
     """
     promised_outcome = profile.get("promised_outcome", "unknown")
     syllabus = profile.get("syllabus", [])
-    syllabus_str = " ".join(syllabus).lower()
-    recursive_keywords = [
-        "audience",
-        "sell course",
-        "monetize",
-        "make money",
-        "following",
-        "passive income",
-    ]
-    is_recursive = promised_outcome == "income" and any(
-        k in syllabus_str for k in recursive_keywords
-    )
     scarcity_signals = profile.get("scarcity_signals", [])
-    recruitment_signal = profile.get("recruitment_signal", False)
-    manipulation_attempt = profile.get("manipulation_attempt", False)
+    is_pyramid_scheme = profile.get("is_pyramid_scheme", False)
 
     # Toxicity check: force return 1 if any veto condition matches
-    if (
-        manipulation_attempt
-        or recruitment_signal
-        or is_recursive
-        or (promised_outcome == "income" and scarcity_signals)
-    ):
+    if is_pyramid_scheme:
         score = 1
     else:
         # Quality scoring for non-toxic courses (giving 2..5)
@@ -105,21 +87,14 @@ def score_content(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
 
     reasons = []
     if score == 1:
-        if manipulation_attempt:
-            reasons.append(Reason("red", "Manipulation Attempt: Sales page tries to manipulate the AI reviewer."))
-        if recruitment_signal:
-            reasons.append(Reason("red", "Recruitment MLM: Promotes students to become resellers/coaches."))
-        if is_recursive:
-            reasons.append(Reason("red", "Recursive Theme: Course syllabus focuses on audience monetization/selling courses."))
+        if is_pyramid_scheme:
+            reasons.append(Reason("red", "Pyramid Scheme: Course revolves around recruiting or reselling the course itself."))
         if promised_outcome == "income":
             reasons.append(Reason("red", "Income Promises: Marketing promises financial earnings."))
         if scarcity_signals:
             reasons.append(Reason("red", f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."))
     else:
-        if is_recursive:
-            reasons.append(Reason("red", "Recursive Theme: Course syllabus focuses on audience monetization/selling courses."))
-        else:
-            reasons.append(Reason("green", "Teaches concrete technical or business skills."))
+        reasons.append(Reason("green", "Teaches concrete technical or business skills."))
 
         if promised_outcome == "income":
             reasons.append(Reason("red", "Income Promises: Marketing promises financial earnings."))
@@ -128,9 +103,6 @@ def score_content(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
 
         if scarcity_signals:
             reasons.append(Reason("red", f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."))
-
-        if recruitment_signal:
-            reasons.append(Reason("red", "Recruitment MLM: Promotes students to become resellers/coaches."))
 
     return score, reasons
 

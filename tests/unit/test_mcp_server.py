@@ -334,7 +334,7 @@ def test_live_mode_fetch_sales_page_headers_x_timeout(monkeypatch) -> None:
 
     monkeypatch.setattr(httpx, "get", mock_get)
 
-    result = fetch_sales_page("https://example.com/course")
+    _ = fetch_sales_page("https://example.com/course")
     assert len(headers_captured) >= 1
     assert headers_captured[0].get("X-Timeout") == "15"
 

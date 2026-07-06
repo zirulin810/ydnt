@@ -66,29 +66,29 @@ def test_score_pricing() -> None:
 
 def test_score_content() -> None:
     """Tests score_content veto conditions (returning 1) and quality levels (2-5)."""
-    # 1. Veto condition: manipulation_attempt is True
-    score, reasons = score_content({"promised_outcome": "skill", "manipulation_attempt": True})
+    # 1. Sole Veto condition: is_pyramid_scheme is True
+    score, _ = score_content({"promised_outcome": "skill", "is_pyramid_scheme": True})
     assert score == 1
 
-    # 2. Veto condition: recruitment_signal is True
-    score, reasons = score_content({"recruitment_signal": True, "promised_outcome": "skill"})
-    assert score == 1
-
-    # 3. Veto condition: Recursive Theme (income outcome + monetization syllabus)
-    recursive_profile = {
-        "promised_outcome": "income",
-        "syllabus": ["Audience monetization strategies", "How to sell courses"],
-    }
-    score, reasons = score_content(recursive_profile)
-    assert score == 1
-
-    # 4. Veto condition: Income Promises + Scarcity Manipulation
+    # 2. Non-veto: income + scarcity does NOT veto (score is not 1)
     income_scarcity_profile = {
         "promised_outcome": "income",
         "scarcity_signals": ["only 2 spots left"],
+        "syllabus": ["Intro", "Setup"],
     }
-    score, reasons = score_content(income_scarcity_profile)
-    assert score == 1
+    score, _ = score_content(income_scarcity_profile)
+    # base 2 (income) + 1 (len(syllabus)=2) - 1 (scarcity) = 2
+    assert score == 2
+
+    # 3. Non-veto: income + monetization keyword in syllabus does NOT veto
+    monetization_profile = {
+        "promised_outcome": "income",
+        "syllabus": ["Audience monetization strategies", "How to sell courses"],
+        "is_pyramid_scheme": False,
+    }
+    score, _ = score_content(monetization_profile)
+    # base 2 + 1 (len=2) = 3
+    assert score == 3
 
     # Non-veto quality checks: must return 2-5, never 1
     # Skill course with syllabus
@@ -96,16 +96,7 @@ def test_score_content() -> None:
         "promised_outcome": "skill",
         "syllabus": ["Intro", "Setup"],
     }
-    score, reasons = score_content(skill_profile)
-    assert score >= 2
-
-    # Income course without scarcity or recursive topics
-    income_clean_profile = {
-        "promised_outcome": "income",
-        "syllabus": ["Financial Literacy Basics"],
-        "scarcity_signals": [],
-    }
-    score, reasons = score_content(income_clean_profile)
+    score, _ = score_content(skill_profile)
     assert score >= 2
 
     # High quality skill course
@@ -114,34 +105,26 @@ def test_score_content() -> None:
         "syllabus": ["Intro", "Setup", "Coding", "Testing", "Deployment"],
         "scarcity_signals": [],
     }
-    score, reasons = score_content(high_quality_profile)
+    score, _reasons = score_content(high_quality_profile)
     assert score == 5
 
 
 def test_score_content_reasons_ground_truth() -> None:
     """Tests that score_content reasons contain correct ground-truth assertions."""
-    # score_content(manipulation_attempt) → 回傳含一條 red 且 message 含 "Manipulation"; score==1 時無 green。
-    score, reasons = score_content({"promised_outcome": "skill", "manipulation_attempt": True})
+    # score_content(is_pyramid_scheme) -> returns red reason with "Pyramid Scheme"
+    score, reasons = score_content({"promised_outcome": "skill", "is_pyramid_scheme": True})
     assert score == 1
     red_reasons = [r for r in reasons if r.severity == "red"]
     green_reasons = [r for r in reasons if r.severity == "green"]
     assert len(red_reasons) == 1
-    assert "Manipulation" in red_reasons[0].message
-    assert len(green_reasons) == 0
-
-    # score_content(recruitment) → 含 "MLM" red、無 green。
-    score, reasons = score_content({"recruitment_signal": True, "promised_outcome": "skill"})
-    assert score == 1
-    red_reasons = [r for r in reasons if r.severity == "red"]
-    green_reasons = [r for r in reasons if r.severity == "green"]
-    assert any("MLM" in r.message for r in red_reasons)
+    assert "Pyramid" in red_reasons[0].message
     assert len(green_reasons) == 0
 
 
 def test_score_creator() -> None:
     """Tests score_creator with footprint, GitHub, employment, and course-selling flags."""
     # No footprint or credentials (analogous to exists = False)
-    score, reasons = score_creator(
+    score, _ = score_creator(
         {
             "footprint": "weak",
             "github_real_work": False,
@@ -151,13 +134,13 @@ def test_score_creator() -> None:
     assert score == 1
 
     # Verifiable professional work or employment
-    score, reasons = score_creator({"github_real_work": True, "verifiable_employment": False})
+    score, _ = score_creator({"github_real_work": True, "verifiable_employment": False})
     assert score >= 4
-    score, reasons = score_creator({"github_real_work": False, "verifiable_employment": True})
+    score, _ = score_creator({"github_real_work": False, "verifiable_employment": True})
     assert score >= 4
 
     # Weak footprint and only sells courses
-    score, reasons = score_creator(
+    score, _reasons = score_creator(
         {
             "footprint": "weak",
             "github_real_work": False,
@@ -171,10 +154,10 @@ def test_score_creator() -> None:
 def test_score_creator_reasons_ground_truth() -> None:
     """Tests that score_creator reasons contain correct ground-truth assertions."""
     # score_creator(github/employment) → 含 "Credible" green。
-    score, reasons = score_creator({"github_real_work": True, "verifiable_employment": False})
+    _, reasons = score_creator({"github_real_work": True, "verifiable_employment": False})
     assert any("Credible" in r.message and r.severity == "green" for r in reasons)
 
-    score, reasons = score_creator({"github_real_work": False, "verifiable_employment": True})
+    _, reasons = score_creator({"github_real_work": False, "verifiable_employment": True})
     assert any("Credible" in r.message and r.severity == "green" for r in reasons)
 
 
@@ -237,28 +220,28 @@ def test_decide_mode_scores_only() -> None:
     """Tests decide_mode to ensure decision branches are derived solely from scores."""
     # 1. content_score == 1 -> should_not
     scores = {"content_score": 1, "creator_score": 5, "alt_content_score": 2}
-    mode, red_flags, green_flags = decide_mode(scores, {})
+    mode, _, _ = decide_mode(scores, {})
     assert mode == "should_not"
 
     # 2. worthy (content_score >= 3, creator_score >= 4, alt_content_score <= content_score)
     scores = {"content_score": 3, "creator_score": 4, "alt_content_score": 2}
-    mode, red_flags, green_flags = decide_mode(scores, {})
+    mode, _, _ = decide_mode(scores, {})
     assert mode == "worthy"
 
     # 3. need_not (otherwise)
     # E.g. content_score too low (< 3)
     scores = {"content_score": 2, "creator_score": 5, "alt_content_score": 2}
-    mode, red_flags, green_flags = decide_mode(scores, {})
+    mode, _, _ = decide_mode(scores, {})
     assert mode == "need_not"
 
     # E.g. creator_score too low (< 4)
     scores = {"content_score": 4, "creator_score": 3, "alt_content_score": 2}
-    mode, red_flags, green_flags = decide_mode(scores, {})
+    mode, _, _ = decide_mode(scores, {})
     assert mode == "need_not"
 
     # E.g. alt_content_score > content_score (free alternatives coverage outweighs course quality)
     scores = {"content_score": 3, "creator_score": 5, "alt_content_score": 4}
-    mode, red_flags, green_flags = decide_mode(scores, {})
+    mode, _, _ = decide_mode(scores, {})
     assert mode == "need_not"
 
 

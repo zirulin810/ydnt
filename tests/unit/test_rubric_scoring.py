@@ -28,9 +28,9 @@ from typing import Any
 from app.nodes import rubric_scoring_node
 from app.schemas import (
     CourseProfile,
+    CreatorEvidence,
     FreeAlternative,
     FreeAlternatives,
-    CreatorEvidence,
 )
 
 
@@ -71,7 +71,7 @@ def default_course_profile(**kwargs) -> CourseProfile:
         "promised_outcome": "skill",
         "syllabus": [],
         "scarcity_signals": [],
-        "recruitment_signal": False,
+        "is_pyramid_scheme": False,
         "is_course_page": True,
     }
     defaults.update(kwargs)
@@ -104,46 +104,46 @@ def default_free_alternatives(**kwargs) -> FreeAlternatives:
 # ===========================================================================
 # Ground-Truth Test Cases
 # ===========================================================================
-def test_scenario_1_mlm_recruitment() -> None:
-    """Scenario 1: MLM Recruitment.
+def test_scenario_1_pyramid_scheme() -> None:
+    """Scenario 1: Pyramid Scheme.
 
-    A course with recruitment signals (recruiting students as resellers/coaches)
-    must lead to 'should_not' mode and have the MLM recruitment red flag.
+    A course classified as a pyramid scheme must lead to 'should_not' mode
+    and have the pyramid scheme red flag.
     """
-    profile = default_course_profile(recruitment_signal=True)
+    profile = default_course_profile(is_pyramid_scheme=True)
     creator = default_creator_evidence()
     free_alt = default_free_alternatives()
 
     result = run_node(profile, creator, free_alt)
 
     assert result["mode"] == "should_not"
-    assert any("MLM" in flag for flag in result["red_flags"])
+    assert any("Pyramid" in flag for flag in result["red_flags"])
 
 
-def test_scenario_2_recursive_monetization() -> None:
-    """Scenario 2: Recursive Monetization.
+def test_scenario_2_recursive_monetization_no_veto() -> None:
+    """Scenario 2: Recursive Monetization (No Veto).
 
-    A course promising income whose syllabus focuses on audience monetization,
-    selling courses, or building followers must lead to 'should_not' mode.
+    An income course with monetization syllabus terms is NOT a veto
+    if is_pyramid_scheme is False. It leads to 'need_not' mode.
     """
     profile = default_course_profile(
         promised_outcome="income",
         syllabus=["Audience growth", "How to sell your course", "Monetize"],
+        is_pyramid_scheme=False,
     )
     creator = default_creator_evidence()
     free_alt = default_free_alternatives()
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "should_not"
-    assert any("Recursive" in flag for flag in result["red_flags"])
+    assert result["mode"] == "need_not"
 
 
-def test_scenario_3_income_promise_with_scarcity() -> None:
-    """Scenario 3: Income Promise + Scarcity Manipulation.
+def test_scenario_3_income_promise_with_scarcity_no_veto() -> None:
+    """Scenario 3: Income Promise + Scarcity (No Veto).
 
     A course promising income combined with scarcity marketing signals
-    must lead to 'should_not' mode.
+    does NOT trigger should_not anymore; it leads to 'need_not' mode.
     """
     profile = default_course_profile(
         promised_outcome="income",
@@ -154,7 +154,7 @@ def test_scenario_3_income_promise_with_scarcity() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "should_not"
+    assert result["mode"] == "need_not"
     assert any("Scarcity" in flag for flag in result["red_flags"])
     assert any("Income" in flag for flag in result["red_flags"])
 

@@ -13,17 +13,18 @@
 # limitations under the License.
 
 from typing import Any
+
 import pytest
+from google.adk import Context
+from google.adk.apps import App, ResumabilityConfig
+from google.adk.runners import InMemoryRunner
+from google.adk.workflow import START, Edge, Workflow, node
+from google.genai import types
 from pydantic import ValidationError
 
-from google.adk import Context
-from google.adk.workflow import node, START, Edge, Workflow
-from google.adk.apps import App, ResumabilityConfig
-from google.genai import types
-
 from app.nodes import triage_course
-from app.scoring import score_pricing
 from app.schemas import CourseProfile
+from app.scoring import score_pricing
 
 
 class MockContext:
@@ -42,8 +43,7 @@ async def test_triage_course_non_course() -> None:
         "promised_outcome": "unknown",
         "syllabus": [],
         "scarcity_signals": [],
-        "recruitment_signal": False,
-        "manipulation_attempt": False,
+        "is_pyramid_scheme": False,
         "is_course_page": False,
         "missing_critical_info": []
     }
@@ -67,8 +67,7 @@ async def test_triage_course_is_course() -> None:
         "promised_outcome": "skill",
         "syllabus": ["Intro"],
         "scarcity_signals": [],
-        "recruitment_signal": False,
-        "manipulation_attempt": False,
+        "is_pyramid_scheme": False,
         "is_course_page": True,
         "missing_critical_info": []
     }
@@ -92,8 +91,7 @@ async def test_triage_course_hitl_missing_price_suspend() -> None:
         "promised_outcome": "skill",
         "syllabus": [],
         "scarcity_signals": [],
-        "recruitment_signal": False,
-        "manipulation_attempt": False,
+        "is_pyramid_scheme": False,
         "is_course_page": True,
         "missing_critical_info": ["price"]
     }
@@ -117,8 +115,7 @@ async def test_triage_course_hitl_missing_price_resume_ok() -> None:
         "promised_outcome": "skill",
         "syllabus": [],
         "scarcity_signals": [],
-        "recruitment_signal": False,
-        "manipulation_attempt": False,
+        "is_pyramid_scheme": False,
         "is_course_page": True,
         "missing_critical_info": ["price"]
     }
@@ -144,8 +141,7 @@ async def test_triage_course_hitl_missing_price_resume_free() -> None:
         "promised_outcome": "skill",
         "syllabus": [],
         "scarcity_signals": [],
-        "recruitment_signal": False,
-        "manipulation_attempt": False,
+        "is_pyramid_scheme": False,
         "is_course_page": True,
         "missing_critical_info": ["price"]
     }
@@ -170,8 +166,7 @@ async def test_triage_course_hitl_missing_price_resume_unknown() -> None:
         "promised_outcome": "skill",
         "syllabus": [],
         "scarcity_signals": [],
-        "recruitment_signal": False,
-        "manipulation_attempt": False,
+        "is_pyramid_scheme": False,
         "is_course_page": True,
         "missing_critical_info": ["price"]
     }
@@ -186,8 +181,6 @@ async def test_triage_course_hitl_missing_price_resume_unknown() -> None:
     assert "User could not provide the price" in ctx.state.get("insufficient_reason", "")
 
 
-from google.adk.runners import InMemoryRunner
-
 def test_hitl_workflow_runner_pause_resume() -> None:
     @node
     def seed_node(ctx: Context, node_input: Any) -> Any:
@@ -199,8 +192,7 @@ def test_hitl_workflow_runner_pause_resume() -> None:
             "promised_outcome": "skill",
             "syllabus": [],
             "scarcity_signals": [],
-            "recruitment_signal": False,
-            "manipulation_attempt": False,
+            "is_pyramid_scheme": False,
             "is_course_page": True,
             "missing_critical_info": ["price"]
         }
@@ -230,7 +222,7 @@ def test_hitl_workflow_runner_pause_resume() -> None:
 
     msg1 = types.Content(role="user", parts=[types.Part.from_text(text="start")])
     events1 = list(runner.run(user_id="user_test", session_id="sess_test", new_message=msg1))
-    
+
     assert len(events1) == 2
     ev_pause = events1[1]
     parts = ev_pause.content.parts
@@ -253,7 +245,7 @@ def test_hitl_workflow_runner_pause_resume() -> None:
         ]
     )
     events2 = list(runner.run(user_id="user_test", session_id="sess_test", new_message=resumption_message))
-    
+
     assert len(events2) == 1
     ev_ok = events2[0]
     assert ev_ok.actions.route == "ok"
@@ -276,8 +268,7 @@ def test_course_profile_validation() -> None:
             promised_outcome="skill",
             syllabus=[],
             scarcity_signals=[],
-            recruitment_signal=False,
-            manipulation_attempt=False,
+            is_pyramid_scheme=False,
         )
 
     profile = CourseProfile(
@@ -288,8 +279,7 @@ def test_course_profile_validation() -> None:
         promised_outcome="skill",
         syllabus=[],
         scarcity_signals=[],
-        recruitment_signal=False,
-        manipulation_attempt=False,
+        is_pyramid_scheme=False,
         is_course_page=True,
     )
     assert profile.missing_critical_info == []
