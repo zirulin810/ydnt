@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from app.scoring import (
     Reason,
-    decide_mode,
+    decide_recommendation,
     score_alt_content,
     score_alt_creator,
     score_content,
@@ -209,38 +209,46 @@ def test_score_alt_creator() -> None:
     assert reasons == []
 
 
-def test_decide_mode_scores_only() -> None:
-    """Tests decide_mode to ensure decision branches are derived solely from scores."""
+def test_decide_recommendation_scores_only() -> None:
+    """Tests decide_recommendation to ensure decision branches are derived solely from scores and price/coverage."""
     # 1. content_score == 1 -> should_not
-    scores = {"content_score": 1, "creator_score": 5, "alt_content_score": 2}
-    mode, _, _ = decide_mode(scores, {})
-    assert mode == "should_not"
+    scores = {"content_score": 1, "creator_score": 5}
+    rec, _, _ = decide_recommendation(scores, {}, price_usd=0.0, best_coverage_pct=0.0)
+    assert rec == "should_not"
 
-    # 2. worthy (content_score >= 3, creator_score >= 4, alt_content_score <= content_score)
-    scores = {"content_score": 3, "creator_score": 4, "alt_content_score": 2}
-    mode, _, _ = decide_mode(scores, {})
-    assert mode == "worthy"
+    # 2. content_score < 3 -> need_not
+    scores = {"content_score": 2, "creator_score": 5}
+    rec, _, _ = decide_recommendation(scores, {}, price_usd=0.0, best_coverage_pct=0.0)
+    assert rec == "need_not"
 
-    # 3. need_not (otherwise)
-    # E.g. content_score too low (< 3)
-    scores = {"content_score": 2, "creator_score": 5, "alt_content_score": 2}
-    mode, _, _ = decide_mode(scores, {})
-    assert mode == "need_not"
+    # 3. creator_score < 4 -> need_not
+    scores = {"content_score": 4, "creator_score": 3}
+    rec, _, _ = decide_recommendation(scores, {}, price_usd=0.0, best_coverage_pct=0.0)
+    assert rec == "need_not"
 
-    # E.g. creator_score too low (< 4)
-    scores = {"content_score": 4, "creator_score": 3, "alt_content_score": 2}
-    mode, _, _ = decide_mode(scores, {})
-    assert mode == "need_not"
+    # 4. price_usd is None -> situational (eff_score = 3)
+    scores = {"content_score": 4, "creator_score": 4}
+    rec, _, _ = decide_recommendation(scores, {}, price_usd=None, best_coverage_pct=50.0)
+    assert rec == "situational"
 
-    # E.g. alt_content_score > content_score (free alternatives coverage outweighs course quality)
-    scores = {"content_score": 3, "creator_score": 5, "alt_content_score": 4}
-    mode, _, _ = decide_mode(scores, {})
-    assert mode == "need_not"
+    # 5. Free (price_usd <= 0) -> worthy (eff_score = 5)
+    scores = {"content_score": 4, "creator_score": 4}
+    rec, _, _ = decide_recommendation(scores, {}, price_usd=0.0, best_coverage_pct=80.0)
+    assert rec == "worthy"
+
+    # 6. $50 @ 80% coverage -> situational
+    scores = {"content_score": 4, "creator_score": 4}
+    rec, _, _ = decide_recommendation(scores, {}, price_usd=50.0, best_coverage_pct=80.0)
+    assert rec == "situational"
+
+    # 7. $50 @ 90% coverage -> need_not
+    scores = {"content_score": 4, "creator_score": 4}
+    rec, _, _ = decide_recommendation(scores, {}, price_usd=50.0, best_coverage_pct=90.0)
+    assert rec == "need_not"
 
 
-def test_decide_mode_veto_flags() -> None:
-    """Tests that decide_mode generates correct flags for veto situations."""
-    # content_score==1 → 只取 content 的 red、green 為空;
+def test_decide_recommendation_veto_flags() -> None:
+    """Tests that decide_recommendation generates correct flags for veto situations."""
     scores = {"content_score": 1}
     reasons = {
         "content": [
@@ -251,31 +259,30 @@ def test_decide_mode_veto_flags() -> None:
             Reason("red", "Weak Footprint: Creator has no notable independent professional achievements.")
         ]
     }
-    mode, red_flags, green_flags = decide_mode(scores, reasons)
-    assert mode == "should_not"
+    rec, red_flags, green_flags = decide_recommendation(scores, reasons, price_usd=0.0, best_coverage_pct=0.0)
+    assert rec == "should_not"
     assert len(red_flags) == 1
     assert "Pyramid" in red_flags[0]
     assert green_flags == []
 
 
-def test_decide_mode_non_veto_flags() -> None:
-    """Tests that decide_mode collects all reasons and separates them by severity when not vetoed."""
-    # 非 veto → 匯集所有理由並依 severity 拆分。
-    scores = {"content_score": 3, "creator_score": 4, "alt_content_score": 2}
+def test_decide_recommendation_non_veto_flags() -> None:
+    """Tests that decide_recommendation collects all reasons and separates them by severity when not vetoed."""
+    scores = {"content_score": 3, "creator_score": 4}
     reasons = {
         "content": [
             Reason("green", "Teaches concrete technical or business skills."),
             Reason("red", "Income Promises: Marketing promises financial earnings.")
         ],
         "creator": [
-            Reason("green", "Credible Creator: Active GitHub or professional employment.")
+            Reason("green", "Credible Creator: verifiable professional or organizational standing.")
         ],
         "alt": [
             Reason("red", "Content Farm: Free alternatives are bloated or low-quality.")
         ]
     }
-    mode, red_flags, green_flags = decide_mode(scores, reasons)
-    assert mode == "worthy"
+    rec, red_flags, green_flags = decide_recommendation(scores, reasons, price_usd=0.0, best_coverage_pct=0.0)
+    assert rec == "worthy"
     assert len(red_flags) == 2
     assert any("Income" in flag for flag in red_flags)
     assert any("Content Farm" in flag for flag in red_flags)

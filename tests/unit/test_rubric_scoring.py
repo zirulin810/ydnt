@@ -106,7 +106,7 @@ def default_free_alternatives(**kwargs) -> FreeAlternatives:
 def test_scenario_1_pyramid_scheme() -> None:
     """Scenario 1: Pyramid Scheme.
 
-    A course classified as a pyramid scheme must lead to 'should_not' mode
+    A course classified as a pyramid scheme must lead to 'should_not' recommendation
     and have the pyramid scheme red flag.
     """
     profile = default_course_profile(is_pyramid_scheme=True)
@@ -115,7 +115,7 @@ def test_scenario_1_pyramid_scheme() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "should_not"
+    assert result["recommendation"] == "should_not"
     assert any("Pyramid" in flag for flag in result["red_flags"])
 
 
@@ -123,7 +123,7 @@ def test_scenario_2_recursive_monetization_no_veto() -> None:
     """Scenario 2: Recursive Monetization (No Veto).
 
     An income course with monetization syllabus terms is NOT a veto
-    if is_pyramid_scheme is False. It leads to 'need_not' mode.
+    if is_pyramid_scheme is False. It leads to 'need_not' recommendation.
     """
     profile = default_course_profile(
         promised_outcome="income",
@@ -135,14 +135,14 @@ def test_scenario_2_recursive_monetization_no_veto() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "need_not"
+    assert result["recommendation"] == "need_not"
 
 
 def test_scenario_3_income_promise_with_scarcity_no_veto() -> None:
     """Scenario 3: Income Promise + Scarcity (No Veto).
 
     A course promising income combined with scarcity marketing signals
-    does NOT trigger should_not anymore; it leads to 'need_not' mode.
+    does NOT trigger should_not anymore; it leads to 'need_not' recommendation.
     """
     profile = default_course_profile(
         promised_outcome="income",
@@ -153,7 +153,7 @@ def test_scenario_3_income_promise_with_scarcity_no_veto() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "need_not"
+    assert result["recommendation"] == "need_not"
     assert any("Scarcity" in flag for flag in result["red_flags"])
     assert any("Income" in flag for flag in result["red_flags"])
 
@@ -162,7 +162,7 @@ def test_scenario_4_high_free_coverage() -> None:
     """Scenario 4: High Free Coverage.
 
     A skill course where high-quality (non content farm) free alternatives cover
-    70%+ of the syllabus with low extraction cost must lead to 'need_not' mode.
+    70%+ of the syllabus with low extraction cost must lead to 'need_not' recommendation.
     """
     profile = default_course_profile(promised_outcome="skill")
     creator = default_creator_evidence(footprint="medium")
@@ -181,16 +181,16 @@ def test_scenario_4_high_free_coverage() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "need_not"
+    assert result["recommendation"] == "need_not"
 
 
 def test_scenario_5_strong_footprint_low_coverage_high_extraction() -> None:
-    """Scenario 5: Strong/Medium Footprint + Coverage < 80% + High Extraction Cost.
+    """Scenario 5: Strong/Medium Footprint + Coverage < 80% + High Extraction Cost + Free.
 
-    A course taught by an creator with a strong footprint, where free alternatives
-    cover less than 80% and have high extraction cost, must lead to 'worthy' mode.
+    A course taught by a creator with a strong footprint, where free alternatives
+    cover less than 80% and have high extraction cost, must lead to 'worthy' recommendation if free/cheap.
     """
-    profile = default_course_profile(promised_outcome="skill")
+    profile = default_course_profile(promised_outcome="skill", price_usd=0.0)
     creator = default_creator_evidence(
         footprint="strong",
         verifiable_track_record=True,
@@ -210,19 +210,18 @@ def test_scenario_5_strong_footprint_low_coverage_high_extraction() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "worthy"
+    assert result["recommendation"] == "worthy"
 
 
 def test_scenario_6_skill_course_credible_creator_no_good_alternative() -> None:
-    """Scenario 6: Skill course + Credible Creator + No Good Free Alternatives.
+    """Scenario 6: Skill course + Credible Creator + No Good Free Alternatives + Free.
 
     A skill course where the creator has verifiable professional work / GitHub contributions,
-    and there are no good free alternatives (very low coverage or extremely high cost),
-    must lead to 'worthy' mode.
+    and there are no good free alternatives, must lead to 'worthy' recommendation if free/cheap.
     """
-    profile = default_course_profile(promised_outcome="skill")
+    profile = default_course_profile(promised_outcome="skill", price_usd=0.0)
     creator = default_creator_evidence(
-        footprint="weak",  # Even with weak public footprint, the creator has real work
+        footprint="weak",
         verifiable_track_record=True,
     )
     # The only alternative has extremely low coverage (20%)
@@ -241,13 +240,13 @@ def test_scenario_6_skill_course_credible_creator_no_good_alternative() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "worthy"
+    assert result["recommendation"] == "worthy"
 
 
 def test_scenario_7_weak_footprint_only_sells_courses() -> None:
     """Scenario 7: Weak Footprint + Only Sells Courses.
 
-    An creator with a weak footprint whose only verifiable activity is selling
+    A creator with a weak footprint whose only verifiable activity is selling
     courses must trigger a weak footprint red flag.
     """
     profile = default_course_profile(promised_outcome="skill")
@@ -266,7 +265,7 @@ def test_scenario_8_boundary_empty_evidences() -> None:
     """Scenario 8: Boundary: All Three Evidences Empty.
 
     When all input evidences are empty or default, it should evaluate to the
-    existing default mode.
+    existing default recommendation.
     """
     profile = default_course_profile(promised_outcome="unknown")
     creator = default_creator_evidence()
@@ -274,4 +273,18 @@ def test_scenario_8_boundary_empty_evidences() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["mode"] == "need_not"
+    assert result["recommendation"] == "need_not"
+
+
+def test_scenario_situational() -> None:
+    """Scenario situational: Good course + Credible Creator + Paid + Coverage places equivalent price in tier 2-3.
+
+    This must lead to 'situational' recommendation.
+    """
+    profile = default_course_profile(promised_outcome="skill", price_usd=50.0)
+    creator = default_creator_evidence(footprint="strong", verifiable_track_record=True)
+    free_alt = default_free_alternatives(best_coverage_pct=80)
+
+    result = run_node(profile, creator, free_alt)
+
+    assert result["recommendation"] == "situational"

@@ -108,8 +108,8 @@ class FreeAlternatives(BaseModel):
 class Verdict(BaseModel):
     """The final verdict and due diligence report for the course."""
 
-    mode: Literal["should_not", "need_not", "worthy", "insufficient"] = Field(
-        description="The final evaluation result: should not buy (should_not), need not buy (need_not), worthy, or insufficient info."
+    recommendation: Literal["should_not", "need_not", "situational", "worthy", "insufficient"] = Field(
+        description="The final evaluation recommendation: should not buy (should_not), need not buy (need_not), situational (課有料且可信, 但覆蓋率校準後的性價比屬邊際, 是否購買由使用者權衡), worthy, or insufficient info."
     )
     red_flags: list[str] = Field(
         default_factory=list,

@@ -16,7 +16,7 @@
 
 Design:
 Provides pure functions to score different axes of online courses and determine
-the final mode, without depending on google.adk or Context objects.
+the final recommendation, without depending on google.adk or Context objects.
 """
 
 from __future__ import annotations
@@ -192,24 +192,36 @@ def score_alt_creator(free_alt: dict[str, Any]) -> tuple[int, list[Reason]]:
     return 5, []
 
 
-def decide_mode(
+def decide_recommendation(
     scores: dict[str, int],
     reasons: dict[str, list[Reason]],
+    price_usd: float | None,
+    best_coverage_pct: float | None,
 ) -> tuple[str, list[str], list[str]]:
-    """Determines final due diligence mode, red flags, and green flags based on scores and reasons."""
+    """Determines final due diligence recommendation, red flags, and green flags based on scores, reasons, and pricing context."""
     content_score = scores.get("content_score", 3)
     creator_score = scores.get("creator_score", 1)
-    alt_content_score = scores.get("alt_content_score", 1)
 
-    # mode:與現在完全相同的分數判定(不變)
     if content_score == 1:
-        mode = "should_not"
-    elif content_score >= 3 and creator_score >= 4 and alt_content_score <= content_score:
-        mode = "worthy"
+        recommendation = "should_not"
+    elif content_score < 3 or creator_score < 4:
+        recommendation = "need_not"
     else:
-        mode = "need_not"
+        if price_usd is None:
+            eff_score = 3
+        else:
+            cov = min(best_coverage_pct or 0.0, 99.0)
+            equivalent_price = price_usd / (1.0 - cov / 100.0)
+            eff_score, _ = score_pricing({"price_usd": equivalent_price})
 
-    # flags:veto 時只取 content 的 red 理由;否則匯集所有理由
+        if eff_score >= 4:
+            recommendation = "worthy"
+        elif 2 <= eff_score <= 3:
+            recommendation = "situational"
+        else:
+            recommendation = "need_not"
+
+    # flags: veto 時只取 content 的 red 理由;否則匯集所有理由
     if content_score == 1:
         selected = [r for r in reasons.get("content", []) if r.severity == "red"]
     else:
@@ -218,4 +230,4 @@ def decide_mode(
     red_flags = [r.message for r in selected if r.severity == "red"]
     green_flags = [r.message for r in selected if r.severity == "green"]
 
-    return mode, red_flags, green_flags
+    return recommendation, red_flags, green_flags

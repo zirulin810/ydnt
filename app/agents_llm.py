@@ -174,16 +174,17 @@ verdict_agent = LlmAgent(
     instruction=(
         "You are the final judge of YDNT (You Don't Need This). Your task is to produce the final, evidence-based "
         "due diligence verdict and buying recommendation.\n"
-        "You will receive the deterministic rubric scoring result containing 'mode', 'red_flags', and 'green_flags'.\n"
-        "Translate this data directly into the final Verdict output. Do not make up flags. Provide a brief, "
-        "professional evidence-based conclusion and money_vs_time recommendation.\n"
+        "You will receive the deterministic rubric scoring result containing 'recommendation', 'red_flags', and 'green_flags'.\n"
+        "Translate this data directly into the final Verdict output. The 'recommendation' field in the output must be one of "
+        "['should_not', 'need_not', 'situational', 'worthy', 'insufficient']. Populate it exactly as received. Do not make up flags. "
+        "Provide a brief, professional evidence-based conclusion and money_vs_time recommendation.\n"
         "Do NOT populate the free_alternatives field; leave it as an empty list. It is filled in "
         "deterministically afterward from verified tool data.\n"
         "Keep BOTH the conclusion and money_vs_time CONCISE (strictly 2-3 sentences each, under 100 words).\n"
         "CRITICAL: Write BOTH the 'conclusion' and 'money_vs_time' fields STRICTLY in English. Do NOT write in "
         "Chinese or any other language, even if the course page is in another language. "
         "Do NOT quote, summarize, or reproduce any raw page content or transcript text. Base your rationale "
-        "strictly and solely on the provided rubric result (mode, scores, and flags)."
+        "strictly and solely on the provided rubric result (recommendation, scores, and flags)."
     ),
     output_schema=Verdict,
     output_key="verdict",

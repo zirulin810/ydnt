@@ -84,7 +84,7 @@ def insufficient_verdict(ctx: Context, node_input: Any) -> Event:
     reason = ctx.state.get("insufficient_reason", "Unknown reason")
     conclusion_text = f"Due diligence could not be performed because the sales page was unreachable: {reason}"
     verdict = {
-        "mode": "insufficient",
+        "recommendation": "insufficient",
         "red_flags": [],
         "green_flags": [],
         "money_vs_time": f"Cannot compare time/money since the sales page was unreachable ({reason}).",
@@ -152,7 +152,7 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
     free_alt = to_dict(free_alt_raw)
 
     from app.scoring import (
-        decide_mode,
+        decide_recommendation,
         score_alt_content,
         score_alt_creator,
         score_content,
@@ -181,17 +181,18 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
         "pricing": price_reasons,
     }
 
-    mode, red_flags, green_flags = decide_mode(scores, reasons)
-
-
     best_coverage_pct = free_alt.get("best_coverage_pct", 0)
+    recommendation, red_flags, green_flags = decide_recommendation(
+        scores, reasons, profile.get("price_usd"), best_coverage_pct
+    )
+
     free_items = free_alt.get("items", [])
     high_extraction_cost = any(
         item.get("extraction_cost") == "high" for item in free_items
     )
 
     rubric_result = {
-        "mode": mode,
+        "recommendation": recommendation,
         "red_flags": red_flags,
         "green_flags": green_flags,
         "best_coverage_pct": best_coverage_pct,

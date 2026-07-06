@@ -58,7 +58,7 @@ def test_insufficient_verdict_node() -> None:
     event = insufficient_verdict._func(ctx, None)
     output = event.output
 
-    assert output["mode"] == "insufficient"
+    assert output["recommendation"] == "insufficient"
     assert output["red_flags"] == []
     assert output["green_flags"] == []
     assert "Mock fetch error details" in output["conclusion"]
@@ -106,7 +106,7 @@ def test_finalize_verdict_success() -> None:
     from app.nodes import finalize_verdict
 
     verdict_data = {
-        "mode": "need_not",
+        "recommendation": "need_not",
         "red_flags": [],
         "green_flags": [],
         "money_vs_time": "time is better",
@@ -146,7 +146,7 @@ def test_finalize_verdict_empty() -> None:
     from app.nodes import finalize_verdict
 
     verdict_data = {
-        "mode": "need_not",
+        "recommendation": "need_not",
         "red_flags": [],
         "green_flags": [],
         "money_vs_time": "time is better",
