@@ -136,6 +136,8 @@ def score_creator(evidence: dict[str, Any]) -> tuple[int, list[Reason]]:
         reasons.append(Reason("red", "Weak Footprint: Creator has no notable independent professional achievements."))
     elif track_record:
         reasons.append(Reason("green", "Credible Creator: verifiable professional or organizational standing."))
+    elif score == 1:
+        reasons.append(Reason("red", "Unverifiable Creator: no verifiable online footprint could be found."))
 
     return score, reasons
 
@@ -202,9 +204,9 @@ def decide_recommendation(
     content_score = scores.get("content_score", 3)
     creator_score = scores.get("creator_score", 1)
 
-    if content_score == 1:
+    if content_score == 1 or creator_score == 1:
         recommendation = "should_not"
-    elif content_score < 3 or creator_score < 4:
+    elif content_score < 3 or creator_score == 2:
         recommendation = "need_not"
     else:
         if price_usd is None:
@@ -215,15 +217,26 @@ def decide_recommendation(
             eff_score, _ = score_pricing({"price_usd": equivalent_price})
 
         if eff_score >= 4:
-            recommendation = "worthy"
+            base = "worthy"
         elif 2 <= eff_score <= 3:
-            recommendation = "situational"
+            base = "situational"
         else:
-            recommendation = "need_not"
+            base = "need_not"
 
-    # flags: veto 時只取 content 的 red 理由;否則匯集所有理由
-    if content_score == 1:
-        selected = [r for r in reasons.get("content", []) if r.severity == "red"]
+        if creator_score == 3:
+            if base == "worthy":
+                recommendation = "situational"
+            else:
+                recommendation = base
+        else:
+            recommendation = base
+
+    # flags: veto 時取 content 和 creator 的 red 理由;否則匯集所有理由
+    if content_score == 1 or creator_score == 1:
+        selected = (
+            [r for r in reasons.get("content", []) if r.severity == "red"]
+            + [r for r in reasons.get("creator", []) if r.severity == "red"]
+        )
     else:
         selected = [r for rs in reasons.values() for r in rs]
 

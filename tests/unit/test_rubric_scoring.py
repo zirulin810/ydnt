@@ -135,7 +135,7 @@ def test_scenario_2_recursive_monetization_no_veto() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["recommendation"] == "need_not"
+    assert result["recommendation"] == "should_not"
 
 
 def test_scenario_3_income_promise_with_scarcity_no_veto() -> None:
@@ -153,7 +153,7 @@ def test_scenario_3_income_promise_with_scarcity_no_veto() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["recommendation"] == "need_not"
+    assert result["recommendation"] == "should_not"
     assert any("Scarcity" in flag for flag in result["red_flags"])
     assert any("Income" in flag for flag in result["red_flags"])
 
@@ -181,7 +181,7 @@ def test_scenario_4_high_free_coverage() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["recommendation"] == "need_not"
+    assert result["recommendation"] == "situational"
 
 
 def test_scenario_5_strong_footprint_low_coverage_high_extraction() -> None:
@@ -273,7 +273,7 @@ def test_scenario_8_boundary_empty_evidences() -> None:
 
     result = run_node(profile, creator, free_alt)
 
-    assert result["recommendation"] == "need_not"
+    assert result["recommendation"] == "should_not"
 
 
 def test_scenario_situational() -> None:

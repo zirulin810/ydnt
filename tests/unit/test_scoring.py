@@ -123,14 +123,14 @@ def test_score_content_reasons_ground_truth() -> None:
 
 def test_score_creator() -> None:
     """Tests score_creator with footprint, track record, and course-selling flags."""
-    # No footprint or credentials (analogous to exists = False)
-    score, _ = score_creator(
+    score, reasons = score_creator(
         {
             "footprint": "weak",
             "verifiable_track_record": False,
         }
     )
     assert score == 1
+    assert any("Unverifiable" in r.message and r.severity == "red" for r in reasons)
 
     # Verifiable professional work or employment
     score, _ = score_creator({"verifiable_track_record": True})
@@ -221,27 +221,37 @@ def test_decide_recommendation_scores_only() -> None:
     rec, _, _ = decide_recommendation(scores, {}, price_usd=0.0, best_coverage_pct=0.0)
     assert rec == "need_not"
 
-    # 3. creator_score < 4 -> need_not
-    scores = {"content_score": 4, "creator_score": 3}
+    # 3. creator_score == 1 -> should_not
+    scores = {"content_score": 5, "creator_score": 1}
+    rec, _, _ = decide_recommendation(scores, {}, price_usd=0.0, best_coverage_pct=0.0)
+    assert rec == "should_not"
+
+    # 4. creator_score == 2 -> need_not
+    scores = {"content_score": 5, "creator_score": 2}
     rec, _, _ = decide_recommendation(scores, {}, price_usd=0.0, best_coverage_pct=0.0)
     assert rec == "need_not"
 
-    # 4. price_usd is None -> situational (eff_score = 3)
+    # 5. creator_score == 3 -> situational (normally worthy if price/coverage is good)
+    scores = {"content_score": 4, "creator_score": 3}
+    rec, _, _ = decide_recommendation(scores, {}, price_usd=0.0, best_coverage_pct=0.0)
+    assert rec == "situational"
+
+    # 6. price_usd is None -> situational (eff_score = 3)
     scores = {"content_score": 4, "creator_score": 4}
     rec, _, _ = decide_recommendation(scores, {}, price_usd=None, best_coverage_pct=50.0)
     assert rec == "situational"
 
-    # 5. Free (price_usd <= 0) -> worthy (eff_score = 5)
+    # 7. Free (price_usd <= 0) -> worthy (eff_score = 5)
     scores = {"content_score": 4, "creator_score": 4}
     rec, _, _ = decide_recommendation(scores, {}, price_usd=0.0, best_coverage_pct=80.0)
     assert rec == "worthy"
 
-    # 6. $50 @ 80% coverage -> situational
+    # 8. $50 @ 80% coverage -> situational
     scores = {"content_score": 4, "creator_score": 4}
     rec, _, _ = decide_recommendation(scores, {}, price_usd=50.0, best_coverage_pct=80.0)
     assert rec == "situational"
 
-    # 7. $50 @ 90% coverage -> need_not
+    # 9. $50 @ 90% coverage -> need_not
     scores = {"content_score": 4, "creator_score": 4}
     rec, _, _ = decide_recommendation(scores, {}, price_usd=50.0, best_coverage_pct=90.0)
     assert rec == "need_not"
@@ -249,7 +259,8 @@ def test_decide_recommendation_scores_only() -> None:
 
 def test_decide_recommendation_veto_flags() -> None:
     """Tests that decide_recommendation generates correct flags for veto situations."""
-    scores = {"content_score": 1}
+    # 1. content veto
+    scores = {"content_score": 1, "creator_score": 4}
     reasons = {
         "content": [
             Reason("red", "Pyramid Scheme: Course revolves around recruiting or reselling the course itself."),
@@ -261,9 +272,26 @@ def test_decide_recommendation_veto_flags() -> None:
     }
     rec, red_flags, green_flags = decide_recommendation(scores, reasons, price_usd=0.0, best_coverage_pct=0.0)
     assert rec == "should_not"
-    assert len(red_flags) == 1
-    assert "Pyramid" in red_flags[0]
+    assert len(red_flags) == 2
+    assert any("Pyramid" in flag for flag in red_flags)
+    assert any("Weak Footprint" in flag for flag in red_flags)
     assert green_flags == []
+
+    # 2. creator veto
+    scores = {"content_score": 4, "creator_score": 1}
+    reasons = {
+        "content": [
+            Reason("red", "Some content red flag")
+        ],
+        "creator": [
+            Reason("red", "Unverifiable Creator: no verifiable online footprint could be found.")
+        ]
+    }
+    rec, red_flags, green_flags = decide_recommendation(scores, reasons, price_usd=0.0, best_coverage_pct=0.0)
+    assert rec == "should_not"
+    assert len(red_flags) == 2
+    assert any("Some content" in flag for flag in red_flags)
+    assert any("Unverifiable" in flag for flag in red_flags)
 
 
 def test_decide_recommendation_non_veto_flags() -> None:
