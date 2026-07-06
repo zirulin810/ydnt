@@ -40,12 +40,10 @@ def score_pricing(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
     if price <= 0:
         return 5, []
     elif price < 50:
-        return 5, []
-    elif price < 150:
         return 4, []
-    elif price < 500:
+    elif price < 150:
         return 3, []
-    elif price < 1000:
+    elif price < 500:
         return 2, []
     else:
         return 1, []

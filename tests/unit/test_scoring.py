@@ -40,25 +40,25 @@ def test_score_pricing() -> None:
 
     # Low prices (< 50)
     score, reasons = score_pricing({"price_usd": 29.0})
-    assert score == 5
+    assert score == 4
     assert reasons == []
 
     # Medium-low prices (< 150)
     score, reasons = score_pricing({"price_usd": 99.0})
-    assert score == 4
+    assert score == 3
     assert reasons == []
 
     # Medium prices (< 500)
     score, reasons = score_pricing({"price_usd": 299.0})
-    assert score == 3
-    assert reasons == []
-
-    # High prices (< 1000)
-    score, reasons = score_pricing({"price_usd": 799.0})
     assert score == 2
     assert reasons == []
 
-    # Extremely high prices (>= 1000)
+    # High prices (>= 500)
+    score, reasons = score_pricing({"price_usd": 799.0})
+    assert score == 1
+    assert reasons == []
+
+    # Extremely high prices
     score, reasons = score_pricing({"price_usd": 1500.0})
     assert score == 1
     assert reasons == []
