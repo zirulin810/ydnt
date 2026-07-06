@@ -251,7 +251,7 @@ def test_decide_mode_veto_flags() -> None:
     scores = {"content_score": 1}
     reasons = {
         "content": [
-            Reason("red", "Manipulation Attempt: Sales page tries to manipulate the AI reviewer."),
+            Reason("red", "Pyramid Scheme: Course revolves around recruiting or reselling the course itself."),
             Reason("green", "Teaches concrete technical or business skills.")
         ],
         "creator": [
@@ -261,7 +261,7 @@ def test_decide_mode_veto_flags() -> None:
     mode, red_flags, green_flags = decide_mode(scores, reasons)
     assert mode == "should_not"
     assert len(red_flags) == 1
-    assert "Manipulation" in red_flags[0]
+    assert "Pyramid" in red_flags[0]
     assert green_flags == []
 
 
