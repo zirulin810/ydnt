@@ -291,7 +291,15 @@ async def triage_course(ctx: Context, node_input: Any):
             yield RequestInput(interrupt_id=item, message=msg)
             return
 
-        answer = (ctx.resume_inputs.get(item) or {}).get("value", "")
+        res_val = ctx.resume_inputs.get(item)
+        if isinstance(res_val, dict):
+            answer = res_val.get("value")
+            if answer is None:
+                answer = res_val.get("result")
+            if answer is None:
+                answer = ""
+        else:
+            answer = res_val if res_val is not None else ""
         norm_answer = str(answer).strip().lower()
 
         cannot_provide = norm_answer in ["", "unknown", "n/a", "none"]
