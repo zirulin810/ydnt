@@ -240,12 +240,15 @@ def finalize_verdict(ctx: Context, node_input: Any) -> Event:
     return Event(output=verdict)
 
 
-@node
-def triage_course(ctx: Context, node_input: Any) -> Event:
-    """Triage course profile to route non-course pages to insufficient verdict.
+@node(rerun_on_resume=True)
+async def triage_course(ctx: Context, node_input: Any):
+    """Triage course profile to route non-course pages or resolve missing info via HITL.
 
-    Design: Rejects non-course pages with a descriptive insufficient reason.
+    Design: Rejects non-course pages, and queries the user via RequestInput for missing
+    critical info (price/creator). Routes to insufficient if user cannot provide them.
     """
+    from google.adk.events import RequestInput
+
     def to_dict(obj: Any) -> dict:
         if hasattr(obj, "model_dump"):
             return obj.model_dump()
@@ -255,13 +258,75 @@ def triage_course(ctx: Context, node_input: Any) -> Event:
             return obj
         return {}
 
-    profile = to_dict(node_input)
+    profile = ctx.state.get("course_profile") or to_dict(node_input)
+    profile = to_dict(profile)
+
     is_course = profile.get("is_course_page", True)
     if not is_course:
-        ctx.state["insufficient_reason"] = (
+        reason = (
             "The page does not appear to be an online course/product page; "
             "course due diligence does not apply."
         )
-        return Event(route="insufficient")
+        ctx.state["insufficient_reason"] = reason
+        yield Event(route="insufficient", state={"insufficient_reason": reason})
+        return
 
-    return Event(output=node_input, route="ok")
+    missing = profile.get("missing_critical_info", [])
+    resolved = {}
+
+    ordered_items = [item for item in ["price", "creator"] if item in missing]
+
+    for item in ordered_items:
+        if item not in ctx.resume_inputs:
+            if item == "price":
+                msg = (
+                    "The course price could not be found on the page. Please provide the price in USD "
+                    "(a number, or 'free' if it is free; reply 'unknown' if you cannot)."
+                )
+            else:
+                msg = (
+                    "The responsible creator/organization could not be found on the page. Please provide "
+                    "the creator's name (reply 'unknown' if you cannot)."
+                )
+            yield RequestInput(interrupt_id=item, message=msg)
+            return
+
+        answer = (ctx.resume_inputs.get(item) or {}).get("value", "")
+        norm_answer = str(answer).strip().lower()
+
+        cannot_provide = norm_answer in ["", "unknown", "n/a", "none"]
+        if item == "creator" and norm_answer == "anonymous":
+            cannot_provide = True
+
+        if cannot_provide:
+            reason = f"User could not provide the {item}; due diligence cannot proceed without it."
+            ctx.state["insufficient_reason"] = reason
+            yield Event(route="insufficient", state={"insufficient_reason": reason})
+            return
+
+        if item == "price":
+            if norm_answer in ["free", "0", "$0"]:
+                resolved["price"] = 0.0
+            else:
+                clean_price = norm_answer.replace("$", "").replace(",", "").strip()
+                try:
+                    resolved["price"] = float(clean_price)
+                except ValueError:
+                    reason = f"User could not provide the price; due diligence cannot proceed without it."
+                    ctx.state["insufficient_reason"] = reason
+                    yield Event(route="insufficient", state={"insufficient_reason": reason})
+                    return
+        elif item == "creator":
+            resolved["creator"] = str(answer).strip()
+
+    merged = dict(profile)
+    if "price" in resolved:
+        merged["price_usd"] = resolved["price"]
+    if "creator" in resolved:
+        merged["creator"] = resolved["creator"]
+
+    resolved_keys = set(resolved.keys())
+    merged["missing_critical_info"] = [m for m in missing if m not in resolved_keys]
+
+    ctx.state["course_profile"] = merged
+    yield Event(output=merged, state={"course_profile": merged}, route="ok")

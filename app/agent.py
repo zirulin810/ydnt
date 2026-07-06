@@ -20,7 +20,7 @@ Tracks the complete execution flow from sales page ingestion to the final verdic
 
 from __future__ import annotations
 
-from google.adk.apps import App
+from google.adk.apps import App, ResumabilityConfig
 from google.adk.workflow import START, Edge, Workflow
 
 from app.agents_llm import (
@@ -68,4 +68,5 @@ root_agent = Workflow(
 app = App(
     root_agent=root_agent,
     name="app",
+    resumability_config=ResumabilityConfig(is_resumable=True)
 )
