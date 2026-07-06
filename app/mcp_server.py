@@ -284,6 +284,13 @@ def _live_search_youtube(query: str) -> list[dict[str, Any]]:
                 f"No valid video results parsed from YouTube search for query: {query}"
             )
         return results
+    except httpx.HTTPError as e:
+        # httpx errors embed the request URL, which carries the API key; never surface it.
+        status = getattr(getattr(e, "response", None), "status_code", None)
+        detail = f"HTTP {status}" if status else type(e).__name__
+        raise RuntimeError(
+            f"Live YouTube search failed for query '{query}' ({detail})"
+        ) from e
     except Exception as e:
         raise RuntimeError(
             f"Live YouTube search failed for query '{query}': {e}"
@@ -357,6 +364,11 @@ def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
             "video_count": video_count,
             "view_count": view_count,
         }
+    except httpx.HTTPError as e:
+        # httpx errors embed the request URL, which carries the API key; never surface it.
+        status = getattr(getattr(e, "response", None), "status_code", None)
+        detail = f"HTTP {status}" if status else type(e).__name__
+        return _channel_stats_not_found(channel_id, f"fetch error ({detail})")
     except Exception as e:
         return _channel_stats_not_found(channel_id, f"fetch error: {e}")
 
