@@ -334,9 +334,25 @@ def _live_get_youtube_transcript(video_id: str) -> str:
         ) from e
 
 
+def _channel_stats_not_found(channel_id: str, reason: str) -> dict[str, Any]:
+    return {
+        "channel_id": channel_id,
+        "found": False,
+        "title": "",
+        "subscriber_count": None,
+        "video_count": None,
+        "view_count": None,
+        "error": reason,
+    }
+
+
 def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
     if not YOUTUBE_API_KEY:
         raise ValueError("YOUTUBE_API_KEY is not configured for live mode")
+
+    if not re.fullmatch(r"UC[0-9A-Za-z_-]{22}", channel_id or ""):
+        return _channel_stats_not_found(channel_id, "invalid channel_id format")
+
     url = "https://www.googleapis.com/youtube/v3/channels"
     params = {
         "part": "statistics,snippet",
@@ -349,9 +365,7 @@ def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
         data = resp.json()
         items = data.get("items", [])
         if not items:
-            raise ValueError(
-                f"Channel not found or empty response for channel ID: {channel_id}"
-            )
+            return _channel_stats_not_found(channel_id, "channel not found / empty response")
         item = items[0]
         snippet = item.get("snippet", {})
         statistics = item.get("statistics", {})
@@ -361,9 +375,7 @@ def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
         view_count = statistics.get("viewCount")
 
         if not subscriber_count or not video_count or not view_count:
-            raise ValueError(
-                f"Missing statistical values in YouTube response for channel ID: {channel_id}"
-            )
+            return _channel_stats_not_found(channel_id, "missing statistics")
 
         return {
             "channel_id": channel_id,
@@ -373,9 +385,7 @@ def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
             "view_count": view_count,
         }
     except Exception as e:
-        raise RuntimeError(
-            f"Live YouTube channel stats fetch failed for channel ID {channel_id}: {e}"
-        ) from e
+        return _channel_stats_not_found(channel_id, f"fetch error: {e}")
 
 
 def _live_verify_github_user(handle: str) -> dict[str, Any]:

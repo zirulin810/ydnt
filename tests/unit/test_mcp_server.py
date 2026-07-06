@@ -158,7 +158,7 @@ def test_live_mode_search_youtube_no_api_key(monkeypatch) -> None:
 
 
 def test_live_mode_get_channel_stats_api_error(monkeypatch) -> None:
-    """Verifies that live get_channel_stats raises RuntimeError on YouTube API error."""
+    """Verifies that live get_channel_stats returns fallback sentinel dictionary on YouTube API error."""
     monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
     monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", "fake_key")
 
@@ -167,8 +167,42 @@ def test_live_mode_get_channel_stats_api_error(monkeypatch) -> None:
 
     monkeypatch.setattr(httpx, "get", mock_get)
 
-    with pytest.raises(RuntimeError):
-        get_channel_stats("channel_123")
+    res = get_channel_stats("UCqUTefVVx0hEzyVdj6bTxAX")
+    assert isinstance(res, dict)
+    assert res["found"] is False
+    assert "error" in res
+
+
+def test_live_mode_get_channel_stats_malformed_id(monkeypatch) -> None:
+    """Verifies that live get_channel_stats validates channel_id format and short-circuits without calling API."""
+    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+    monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", "fake_key")
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("httpx.get should not be called for malformed channel_id")
+
+    monkeypatch.setattr(httpx, "get", fail_if_called)
+
+    res = get_channel_stats("UCqUTefVVx0hEzyVdj6bTxA")
+    assert isinstance(res, dict)
+    assert res["found"] is False
+    assert "invalid channel_id format" in res["error"]
+
+
+def test_live_mode_get_channel_stats_empty_response(monkeypatch) -> None:
+    """Verifies that live get_channel_stats handles empty items response gracefully."""
+    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+    monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", "fake_key")
+
+    def mock_get(*args, **kwargs):
+        return httpx.Response(200, json={"items": []}, request=httpx.Request("GET", args[0]))
+
+    monkeypatch.setattr(httpx, "get", mock_get)
+
+    res = get_channel_stats("UCqUTefVVx0hEzyVdj6bTxAX")
+    assert isinstance(res, dict)
+    assert res["found"] is False
+    assert "channel not found" in res["error"]
 
 
 def test_live_mode_get_channel_stats_no_api_key(monkeypatch) -> None:
