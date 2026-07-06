@@ -19,7 +19,6 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
 YOUTUBE_API_KEY: str | None = os.getenv("YOUTUBE_API_KEY")
-GITHUB_TOKEN: str | None = os.getenv("GITHUB_TOKEN")
 JINA_API_KEY: str | None = os.getenv("JINA_API_KEY")
 
 # Google Cloud

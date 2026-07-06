@@ -23,14 +23,12 @@ from __future__ import annotations
 import json
 import os
 import re
-from html.parser import HTMLParser
 from typing import Any
-from urllib.parse import parse_qs, urlparse
 
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-from config import CACHE_DIR, GITHUB_TOKEN, JINA_API_KEY, USE_MOCK, YOUTUBE_API_KEY
+from config import CACHE_DIR, JINA_API_KEY, USE_MOCK, YOUTUBE_API_KEY
 
 mcp = FastMCP("ydnt-tools")
 
@@ -145,31 +143,6 @@ def _mock_get_channel_stats(channel_id: str) -> dict[str, Any]:
         f"Channel stats not found in mock cache for channel ID: {channel_id}"
     )
 
-
-def _mock_verify_github_user(handle: str) -> dict[str, Any]:
-    for filename in os.listdir(CACHE_DIR):
-        if filename.endswith(".json"):
-            path = os.path.join(CACHE_DIR, filename)
-            try:
-                with open(path, encoding="utf-8") as f:
-                    cache = json.load(f)
-            except Exception:
-                continue
-            github_data = cache.get("github_user", {})
-            if github_data and github_data.get("handle", "").lower() == handle.lower():
-                return github_data
-    raise MockDataMissing(f"GitHub user not found in mock cache for handle: {handle}")
-
-
-def _mock_web_search(query: str) -> list[dict[str, Any]]:
-    case_name = get_case_name(query)
-    cache = load_mock_cache(case_name)
-    val = cache.get("web_search")
-    if val is None:
-        raise MockDataMissing(
-            f"web_search not found in mock data for case: {case_name}"
-        )
-    return val
 
 
 # ---------------------------------------------------------------------------
@@ -388,145 +361,6 @@ def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
         return _channel_stats_not_found(channel_id, f"fetch error: {e}")
 
 
-def _live_verify_github_user(handle: str) -> dict[str, Any]:
-    headers = {}
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"token {GITHUB_TOKEN}"
-    user_url = f"https://api.github.com/users/{handle}"
-    try:
-        user_resp = httpx.get(user_url, headers=headers, timeout=4.0)
-        if user_resp.status_code == 404:
-            return {"handle": handle, "exists": False}
-        user_resp.raise_for_status()
-        user_data = user_resp.json()
-        if not user_data:
-            raise ValueError(f"Empty user data returned for GitHub handle: {handle}")
-
-        repos_url = (
-            f"https://api.github.com/users/{handle}/repos?sort=updated&per_page=5"
-        )
-        repos_resp = httpx.get(repos_url, headers=headers, timeout=4.0)
-        repos_resp.raise_for_status()
-        repos = repos_resp.json()
-        if not isinstance(repos, list):
-            raise ValueError(f"Expected a repository list for GitHub handle: {handle}")
-
-        has_real_work = len(repos) > 0 and any(
-            not repo.get("fork", False) and repo.get("stargazers_count", 0) > 2
-            for repo in repos
-        )
-        return {
-            "handle": handle,
-            "exists": True,
-            "public_repos": user_data.get("public_repos", 0),
-            "followers": user_data.get("followers", 0),
-            "has_real_work": has_real_work,
-            "repos": [
-                {
-                    "name": r.get("name"),
-                    "stars": r.get("stargazers_count"),
-                    "fork": r.get("fork"),
-                }
-                for r in repos
-            ],
-        }
-    except Exception as e:
-        raise RuntimeError(
-            f"Live GitHub user verification failed for handle {handle}: {e}"
-        ) from e
-
-
-class DuckDuckGoHTMLParser(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.results = []
-        self.current_result = {}
-        self.recording_title = False
-        self.recording_snippet = False
-        self.title_parts = []
-        self.snippet_parts = []
-        self.snippet_tag = None
-
-    def handle_starttag(self, tag, attrs):
-        attrs_dict = dict(attrs)
-        class_name = attrs_dict.get("class", "")
-
-        # If it's a result title anchor
-        if tag == "a" and "result__a" in class_name:
-            # Save any unsaved previous result
-            if "title" in self.current_result and "url" in self.current_result:
-                self.results.append({
-                    "title": self.current_result.get("title", ""),
-                    "url": self.current_result.get("url", ""),
-                    "snippet": self.current_result.get("snippet", ""),
-                })
-            self.current_result = {}
-            self.recording_title = True
-            self.title_parts = []
-
-            raw_url = attrs_dict.get("href", "")
-            url = raw_url
-            if "uddg=" in raw_url:
-                parsed = urlparse(raw_url)
-                qs = parse_qs(parsed.query)
-                if "uddg" in qs:
-                    url = qs["uddg"][0]
-            self.current_result["url"] = url
-
-        elif "result__snippet" in class_name:
-            self.recording_snippet = True
-            self.snippet_tag = tag
-            self.snippet_parts = []
-
-    def handle_data(self, data):
-        if self.recording_title:
-            self.title_parts.append(data)
-        elif self.recording_snippet:
-            self.snippet_parts.append(data)
-
-    def handle_endtag(self, tag):
-        if tag == "a" and self.recording_title:
-            self.recording_title = False
-            self.current_result["title"] = "".join(self.title_parts).strip()
-        elif self.recording_snippet and tag == self.snippet_tag:
-            self.recording_snippet = False
-            self.current_result["snippet"] = "".join(self.snippet_parts).strip()
-
-            # Since snippet usually comes after title, save the result now
-            if "title" in self.current_result and "url" in self.current_result:
-                self.results.append({
-                    "title": self.current_result.get("title", ""),
-                    "url": self.current_result.get("url", ""),
-                    "snippet": self.current_result.get("snippet", ""),
-                })
-                self.current_result = {}
-
-
-def _live_web_search(query: str) -> list[dict[str, Any]]:
-    url = "https://html.duckduckgo.com/html/"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-    }
-    payload = {"q": query}
-    try:
-        resp = httpx.post(url, data=payload, headers=headers, timeout=8.0)
-        resp.raise_for_status()
-    except Exception as e:
-        raise RuntimeError(f"Live web search failed for query '{query}': {e}") from e
-
-    parser = DuckDuckGoHTMLParser()
-    parser.feed(resp.text)
-
-    # Save the last result if it wasn't appended
-    if "title" in parser.current_result and "url" in parser.current_result:
-        parser.results.append({
-            "title": parser.current_result.get("title", ""),
-            "url": parser.current_result.get("url", ""),
-            "snippet": parser.current_result.get("snippet", ""),
-        })
-
-    return parser.results
-
 
 # ---------------------------------------------------------------------------
 # MCP Tools
@@ -569,23 +403,6 @@ def get_channel_stats(channel_id: str) -> dict[str, Any]:
     if USE_MOCK:
         return _mock_get_channel_stats(channel_id)
     return _live_get_channel_stats(channel_id)
-
-
-@mcp.tool()
-def verify_github_user(handle: str) -> dict[str, Any]:
-    """Verifies a user's GitHub activity, repositories, and real work."""
-    if USE_MOCK:
-        return _mock_verify_github_user(handle)
-    return _live_verify_github_user(handle)
-
-
-@mcp.tool()
-def web_search(query: str) -> list[dict[str, Any]]:
-    """Performs a web search for credentials, company affiliations, and reviews."""
-    if USE_MOCK:
-        return _mock_web_search(query)
-    return _live_web_search(query)
-
 
 if __name__ == "__main__":
     mcp.run()

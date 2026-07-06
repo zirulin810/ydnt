@@ -25,8 +25,6 @@ from app.mcp_server import (
     get_channel_stats,
     get_youtube_transcript,
     search_youtube,
-    verify_github_user,
-    web_search,
 )
 
 
@@ -61,13 +59,6 @@ def test_mock_mode_get_channel_stats_missing(monkeypatch) -> None:
     monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
     with pytest.raises(MockDataMissing):
         get_channel_stats("non_existent_channel_id_9999")
-
-
-def test_mock_mode_verify_github_user_missing(monkeypatch) -> None:
-    """Verifies that verify_github_user raises MockDataMissing if not found in mock cache."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
-    with pytest.raises(MockDataMissing):
-        verify_github_user("non_existent_github_handle_9999")
 
 
 # ===========================================================================
@@ -211,67 +202,6 @@ def test_live_mode_get_channel_stats_no_api_key(monkeypatch) -> None:
     monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", None)
     with pytest.raises(ValueError):
         get_channel_stats("channel_123")
-
-
-def test_live_mode_verify_github_user_api_error(monkeypatch) -> None:
-    """Verifies that live verify_github_user raises RuntimeError on GitHub API error."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
-
-    def mock_get(*args, **kwargs):
-        return httpx.Response(500, request=httpx.Request("GET", args[0]))
-
-    monkeypatch.setattr(httpx, "get", mock_get)
-
-    with pytest.raises(RuntimeError):
-        verify_github_user("some_github_handle")
-
-
-def test_live_mode_web_search_success(monkeypatch) -> None:
-    """Verifies that live web_search successfully parses canned DDG HTML."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
-
-    canned_html = """
-    <html>
-    <body>
-      <div class="result">
-        <a class="result__a" href="https://example.com/site">Example Title</a>
-        <span class="result__snippet">Example description snippet.</span>
-      </div>
-      <div class="result">
-        <a class="result__a" href="/l/?uddg=https%3A%2F%2Fexample2.com">Example Title 2</a>
-        <a class="result__snippet" href="/l/?uddg=https%3A%2F%2Fexample2.com">Example description snippet 2.</a>
-      </div>
-    </body>
-    </html>
-    """
-
-    def mock_post(*args, **kwargs):
-        return httpx.Response(200, content=canned_html, request=httpx.Request("POST", args[0]))
-
-    monkeypatch.setattr(httpx, "post", mock_post)
-
-    results = web_search("some query")
-    assert len(results) == 2
-    assert results[0]["title"] == "Example Title"
-    assert results[0]["url"] == "https://example.com/site"
-    assert results[0]["snippet"] == "Example description snippet."
-
-    assert results[1]["title"] == "Example Title 2"
-    assert results[1]["url"] == "https://example2.com"
-    assert results[1]["snippet"] == "Example description snippet 2."
-
-
-def test_live_mode_web_search_failure(monkeypatch) -> None:
-    """Verifies that live web_search raises RuntimeError on POST exception/error."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
-
-    def mock_post(*args, **kwargs):
-        raise httpx.RequestError("Timeout")
-
-    monkeypatch.setattr(httpx, "post", mock_post)
-
-    with pytest.raises(RuntimeError):
-        web_search("some query")
 
 
 def test_live_mode_get_youtube_transcript_success(monkeypatch) -> None:

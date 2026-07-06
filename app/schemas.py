@@ -66,9 +66,6 @@ class CreatorEvidence(BaseModel):
     footprint: Literal["strong", "medium", "weak"] = Field(
         description="The strength of the creator's independent online presence."
     )
-    github_real_work: bool = Field(
-        description="Whether verifiable real work or contributions exist on GitHub."
-    )
     verifiable_employment: bool = Field(
         description="Whether verifiable professional employment or company ownership is found."
     )

@@ -110,15 +110,14 @@ def score_content(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
 def score_creator(evidence: dict[str, Any]) -> tuple[int, list[Reason]]:
     """Scores creator credibility and footprint from 1 to 5.
 
-    Design: Relies on verifiable hard facts (GitHub real work or employment)
+    Design: Relies on verifiable hard facts (employment)
     rather than subjective footprint tags.
     """
     footprint = evidence.get("footprint", "weak")
-    github = evidence.get("github_real_work", False)
     employment = evidence.get("verifiable_employment", False)
     only_sells = evidence.get("only_sells_courses", False)
 
-    if github or employment:
+    if employment:
         if footprint == "strong":
             score = 5
         else:
@@ -135,8 +134,8 @@ def score_creator(evidence: dict[str, Any]) -> tuple[int, list[Reason]]:
     reasons = []
     if footprint == "weak" and only_sells:
         reasons.append(Reason("red", "Weak Footprint: Creator has no notable independent professional achievements."))
-    elif github or employment:
-        reasons.append(Reason("green", "Credible Creator: Active GitHub or professional employment."))
+    elif employment:
+        reasons.append(Reason("green", "Credible Creator: verifiable professional or organizational standing."))
 
     return score, reasons
 

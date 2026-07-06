@@ -122,28 +122,24 @@ def test_score_content_reasons_ground_truth() -> None:
 
 
 def test_score_creator() -> None:
-    """Tests score_creator with footprint, GitHub, employment, and course-selling flags."""
+    """Tests score_creator with footprint, employment, and course-selling flags."""
     # No footprint or credentials (analogous to exists = False)
     score, _ = score_creator(
         {
             "footprint": "weak",
-            "github_real_work": False,
             "verifiable_employment": False,
         }
     )
     assert score == 1
 
     # Verifiable professional work or employment
-    score, _ = score_creator({"github_real_work": True, "verifiable_employment": False})
-    assert score >= 4
-    score, _ = score_creator({"github_real_work": False, "verifiable_employment": True})
+    score, _ = score_creator({"verifiable_employment": True})
     assert score >= 4
 
     # Weak footprint and only sells courses
     score, _reasons = score_creator(
         {
             "footprint": "weak",
-            "github_real_work": False,
             "verifiable_employment": False,
             "only_sells_courses": True,
         }
@@ -153,11 +149,8 @@ def test_score_creator() -> None:
 
 def test_score_creator_reasons_ground_truth() -> None:
     """Tests that score_creator reasons contain correct ground-truth assertions."""
-    # score_creator(github/employment) → 含 "Credible" green。
-    _, reasons = score_creator({"github_real_work": True, "verifiable_employment": False})
-    assert any("Credible" in r.message and r.severity == "green" for r in reasons)
-
-    _, reasons = score_creator({"github_real_work": False, "verifiable_employment": True})
+    # score_creator(employment) → 含 "Credible" green。
+    _, reasons = score_creator({"verifiable_employment": True})
     assert any("Credible" in r.message and r.severity == "green" for r in reasons)
 
 

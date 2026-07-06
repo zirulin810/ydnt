@@ -22,19 +22,25 @@ from __future__ import annotations
 
 from google.adk.agents import LlmAgent
 from google.adk.models import Gemini
+from google.adk.tools.google_search_agent_tool import (
+    GoogleSearchAgentTool,
+    create_google_search_agent,
+)
 from google.genai import types
 
 from app.mcp_server import (
     get_channel_stats,
     search_youtube,
-    verify_github_user,
-    web_search,
 )
 from app.schemas import CourseProfile, CreatorEvidence, FreeAlternatives, Verdict
 from config import MODEL_JUDGMENT, MODEL_ROUTING
 
 # Centralized retry options for model requests
 _RETRY_OPTIONS = types.HttpRetryOptions(attempts=3)
+
+# Initialize Google Search Agent Tool for grounding in creator_verify
+_gsa = create_google_search_agent(model=MODEL_JUDGMENT)
+google_search_tool = GoogleSearchAgentTool(_gsa)
 
 
 # ---------------------------------------------------------------------------
@@ -89,11 +95,11 @@ creator_verify = LlmAgent(
         "and achievements of the course creator (which can be a named individual, a company, or an institution).\n"
         "\n"
         "BLANK/MISSING CREATOR RULE:\n"
-        "- If no creator is provided (the creator field in the course profile is empty or blank), do not attempt to guess, discover, or search who the creator is. Do not call any tools. Directly report it as unverifiable by returning: footprint='weak', github_real_work=False, verifiable_employment=False, only_sells_courses=False, evidence_links=[].\n"
+        "- If no creator is provided (the creator field in the course profile is empty or blank), do not attempt to guess, discover, or search who the creator is. Do not call any tools. Directly report it as unverifiable by returning: footprint='weak', verifiable_employment=False, only_sells_courses=False, evidence_links=[].\n"
         "\n"
         "ORGANIZATION & CREDIBILITY GUIDELINES:\n"
         "- If the creator is an organization (e.g., Google, a university, a corporate entity): "
-        "You MUST NOT skip verification. Use `web_search` to investigate the reputation, credibility, and real-world work of this organization.\n"
+        "You MUST NOT skip verification. Use `google_search` to investigate the reputation, credibility, and real-world work of this organization.\n"
         "- Map the findings to the existing `CreatorEvidence` schema fields in a neutral way:\n"
         "  * If it is a reputable, well-established institution or organization (e.g., Google, Kaggle official): "
         "set `footprint` to 'strong' or 'medium', and set `verifiable_employment` to True (interpreted as a 'verifiable, reputable real-world entity').\n"
@@ -101,23 +107,21 @@ creator_verify = LlmAgent(
         "set `footprint` to 'weak', and set `only_sells_courses` to True.\n"
         "\n"
         "INVESTIGATION RULES & TOOL CONSTRAINTS:\n"
-        "1. Unless the creator is blank/missing, CALL `verify_github_user` EXACTLY ONCE to inspect the creator's GitHub footprint. If you do not know "
-        "a specific GitHub handle or if the creator is an organization, search/verify with a reasonable guess or the organization name (e.g., 'Google'), but you MUST call this tool exactly once.\n"
-        "2. Limit `web_search` to AT MOST 2 to 3 targeted, non-overlapping queries (e.g., 'Creator/Organization Name background', "
+        "1. Limit `google_search` to AT MOST 2 to 3 targeted, non-overlapping queries (e.g., 'Creator/Organization Name background', "
         "'Creator/Organization Name reputation'). Synthesize after these searches; do not exhaustively search.\n"
-        "3. IF A `web_search` RETURNS EMPTY RESULTS (`[]`), treat this immediately as 'no verifiable online footprint found'. "
-        "Do NOT retry with variations, synonyms, or different query formulations. Simply record the absence of findings and continue.\n"
-        "4. DO NOT hallucinate. Do not make up links, professional footprint details, or achievements. All findings in your "
-        "structured CreatorEvidence output must be backed strictly by the tools' actual responses.\n"
+        "2. IF A `google_search` query returns no relevant results, treat this immediately as 'no verifiable online footprint found'. "
+        "Simply record the absence of findings and continue.\n"
+        "3. DO NOT hallucinate. Do not make up links, professional footprint details, or achievements. All findings in your "
+        "structured CreatorEvidence output must be backed strictly by the tools' actual responses. "
+        "For 'evidence_links', populate it ONLY with the actual, real source URLs returned from the search tool; do not invent or guess any URL.\n"
         "\n"
         "Use the provided tools to investigate:\n"
-        "- GitHub footprint using verify_github_user.\n"
-        "- Verifiable employment, company history, or organization credibility using web_search.\n"
+        "- Verifiable employment, company history, or organization credibility using google_search.\n"
         "- YouTube presence using get_channel_stats.\n"
         "\n"
         "Synthesize your findings and output a structured CreatorEvidence report."
     ),
-    tools=[verify_github_user, get_channel_stats, web_search],
+    tools=[get_channel_stats, google_search_tool],
     output_schema=CreatorEvidence,
     output_key="creator_evidence",
 )
