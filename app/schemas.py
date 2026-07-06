@@ -66,8 +66,8 @@ class CreatorEvidence(BaseModel):
     footprint: Literal["strong", "medium", "weak"] = Field(
         description="The strength of the creator's independent online presence."
     )
-    verifiable_employment: bool = Field(
-        description="Whether verifiable professional employment or company ownership is found."
+    verifiable_track_record: bool = Field(
+        description="Whether the creator (individual or organization) has a verifiable real-world professional track record or standing, such as verifiable employment, company ownership, notable work, or reputable institutional status, rather than just selling courses."
     )
     only_sells_courses: bool = Field(
         description="Whether the creator's only verifiable achievement is selling courses."

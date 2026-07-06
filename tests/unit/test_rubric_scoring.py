@@ -82,7 +82,7 @@ def default_creator_evidence(**kwargs) -> CreatorEvidence:
     """Creates a CreatorEvidence with standard defaults."""
     defaults = {
         "footprint": "weak",
-        "verifiable_employment": False,
+        "verifiable_track_record": False,
         "only_sells_courses": False,
         "evidence_links": [],
     }
@@ -193,7 +193,7 @@ def test_scenario_5_strong_footprint_low_coverage_high_extraction() -> None:
     profile = default_course_profile(promised_outcome="skill")
     creator = default_creator_evidence(
         footprint="strong",
-        verifiable_employment=True,
+        verifiable_track_record=True,
     )
     free_alt = default_free_alternatives(
         items=[
@@ -223,7 +223,7 @@ def test_scenario_6_skill_course_credible_creator_no_good_alternative() -> None:
     profile = default_course_profile(promised_outcome="skill")
     creator = default_creator_evidence(
         footprint="weak",  # Even with weak public footprint, the creator has real work
-        verifiable_employment=True,
+        verifiable_track_record=True,
     )
     # The only alternative has extremely low coverage (20%)
     free_alt = default_free_alternatives(
