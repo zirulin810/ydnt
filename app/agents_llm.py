@@ -117,11 +117,10 @@ creator_verify = LlmAgent(
         "\n"
         "Use the provided tools to investigate:\n"
         "- Verifiable real-world track record / standing (employment, company, notable work, or reputable institution) using google_search.\n"
-        "- YouTube presence using get_channel_stats.\n"
         "\n"
         "Synthesize your findings and output a structured CreatorEvidence report."
     ),
-    tools=[get_channel_stats, google_search_tool],
+    tools=[google_search_tool],
     output_schema=CreatorEvidence,
     output_key="creator_evidence",
 )
