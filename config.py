@@ -20,6 +20,7 @@ load_dotenv()
 GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
 YOUTUBE_API_KEY: str | None = os.getenv("YOUTUBE_API_KEY")
 GITHUB_TOKEN: str | None = os.getenv("GITHUB_TOKEN")
+JINA_API_KEY: str | None = os.getenv("JINA_API_KEY")
 
 # Google Cloud
 GOOGLE_CLOUD_LOCATION: str = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
@@ -57,17 +58,11 @@ GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", GOOGLE_CLOUD_LOCATION
 # ---------------------------------------------------------------------------
 # Model Configuration
 # ---------------------------------------------------------------------------
-# Routing/classification (cheap): used for parse_course, budget_gate decisions
+# Routing/classification (cheap): used for parse_course
 MODEL_ROUTING: str = os.getenv("MODEL_ROUTING", "gemini-2.5-flash")
 
-# Semantic judgment (capable): used for instructor_verify, free_alt_score, verdict
+# Semantic judgment (capable): used for creator_verify, free_alt_score, verdict
 MODEL_JUDGMENT: str = os.getenv("MODEL_JUDGMENT", "gemini-2.5-flash")
-
-# ---------------------------------------------------------------------------
-# Routing Thresholds
-# ---------------------------------------------------------------------------
-# Default budget cap in USD — below this AND low-risk → quick route (no LLM)
-DEFAULT_BUDGET_CAP: float = float(os.getenv("DEFAULT_BUDGET_CAP", "50.0"))
 
 # ---------------------------------------------------------------------------
 # Mock / Development

@@ -30,7 +30,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-from config import CACHE_DIR, GITHUB_TOKEN, USE_MOCK, YOUTUBE_API_KEY
+from config import CACHE_DIR, GITHUB_TOKEN, JINA_API_KEY, USE_MOCK, YOUTUBE_API_KEY
 
 mcp = FastMCP("ydnt-tools")
 
@@ -181,7 +181,7 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
             f"fetch_sales_page requires a valid HTTP/HTTPS URL in live mode: {url_or_case}"
         )
 
-    jina_api_key = os.getenv("JINA_API_KEY")
+    jina_api_key = JINA_API_KEY
     
     def fetch_from_jina(url: str, return_markdown: bool = False) -> str:
         jina_url = f"https://r.jina.ai/{url}"
