@@ -36,7 +36,9 @@ def score_pricing(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
 
     Design: Assesses total price risk. Low pricing receives a high score.
     """
-    price = profile.get("price_usd", 0.0)
+    price = profile.get("price_usd")
+    if price is None:
+        return 3, []
     if price <= 0:
         return 5, []
     elif price < 50:

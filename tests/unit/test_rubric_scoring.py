@@ -72,6 +72,7 @@ def default_course_profile(**kwargs) -> CourseProfile:
         "syllabus": [],
         "scarcity_signals": [],
         "recruitment_signal": False,
+        "is_course_page": True,
     }
     defaults.update(kwargs)
     return CourseProfile(**defaults)

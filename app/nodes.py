@@ -238,3 +238,30 @@ def finalize_verdict(ctx: Context, node_input: Any) -> Event:
     ctx.state["verdict"] = verdict
 
     return Event(output=verdict)
+
+
+@node
+def triage_course(ctx: Context, node_input: Any) -> Event:
+    """Triage course profile to route non-course pages to insufficient verdict.
+
+    Design: Rejects non-course pages with a descriptive insufficient reason.
+    """
+    def to_dict(obj: Any) -> dict:
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump()
+        if hasattr(obj, "dict"):
+            return obj.dict()
+        if isinstance(obj, dict):
+            return obj
+        return {}
+
+    profile = to_dict(node_input)
+    is_course = profile.get("is_course_page", True)
+    if not is_course:
+        ctx.state["insufficient_reason"] = (
+            "The page does not appear to be an online course/product page; "
+            "course due diligence does not apply."
+        )
+        return Event(route="insufficient")
+
+    return Event(output=node_input, route="ok")

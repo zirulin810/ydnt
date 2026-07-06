@@ -35,6 +35,7 @@ from app.nodes import (
     insufficient_verdict,
     prepare_free_alt_input,
     rubric_scoring_node,
+    triage_course,
 )
 
 # ---------------------------------------------------------------------------
@@ -51,8 +52,10 @@ root_agent = Workflow(
             to_node=insufficient_verdict,
             route="insufficient",
         ),
+        Edge(from_node=parse_course, to_node=triage_course),
+        Edge(from_node=triage_course, to_node=insufficient_verdict, route="insufficient"),
         # Full linear analysis path
-        Edge(from_node=parse_course, to_node=creator_verify),
+        Edge(from_node=triage_course, to_node=creator_verify, route="ok"),
         Edge(from_node=creator_verify, to_node=prepare_free_alt_input),
         Edge(from_node=prepare_free_alt_input, to_node=free_alt_score),
         Edge(from_node=free_alt_score, to_node=rubric_scoring_node),
