@@ -621,11 +621,7 @@
         <div class="spinner" style="color: var(--primary); margin-right: 0.5rem; vertical-align: middle;"></div>
         Agent is crawling and analyzing the page (this may take 20-30 seconds)...
       </div>
-      <!-- Inline scan results instead of sidebar popup -->
-      <div id="scan-result-container" style="display: none; margin-top: 2rem; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 12px; padding: 1.5rem; max-height: 500px; overflow-y: auto;">
-        <h4 id="scan-result-title" style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: var(--primary);">Analysis Result</h4>
-        <div id="scan-result-content" class="result-content" style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main);"></div>
-      </div>
+
     </div>
 
     <h2 class="section-title" id="pipeline-title">Real-Time Analysis Pipeline</h2>
@@ -693,6 +689,9 @@
     // Core state tracking
     let activeSessionId = null;
     let pollingInterval = null;
+    let lastRenderedStatus = null;
+    let lastRenderedInterruptId = null;
+    let lastRenderedNode = null;
 
     const NODE_SEQUENCE = [
       'START',
@@ -730,7 +729,36 @@
       // Reset card visual state
       document.getElementById('progress-card').classList.remove('completed-celebration', 'interrupted-attention');
       document.getElementById('intervention-card').classList.remove('completed-celebration', 'interrupted-attention');
-      document.getElementById('scan-result-container').style.display = 'none';
+      
+      const progressBody = document.getElementById('progress-card-body');
+      progressBody.style.display = 'flex';
+      progressBody.style.minHeight = '200px';
+      progressBody.style.justifyContent = 'center';
+      progressBody.style.alignItems = 'center';
+      progressBody.style.textAlign = 'center';
+      progressBody.innerHTML = `
+        <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">⏳</div>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">Starting pipeline...</p>
+      `;
+
+      const interventionBody = document.getElementById('intervention-card-body');
+      interventionBody.style.display = 'flex';
+      interventionBody.style.minHeight = '200px';
+      interventionBody.style.justifyContent = 'center';
+      interventionBody.style.alignItems = 'center';
+      interventionBody.style.textAlign = 'center';
+      interventionBody.style.padding = '';
+      interventionBody.style.maxHeight = '';
+      interventionBody.style.overflowY = '';
+      interventionBody.innerHTML = `
+        <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">💬</div>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">Waiting for workflow execution. If the agent gets interrupted for missing details, input forms will appear here.</p>
+      `;
+
+      // Reset tracking variables
+      lastRenderedStatus = null;
+      lastRenderedInterruptId = null;
+      lastRenderedNode = null;
       
       try {
         const response = await fetch('/api/scan', {
@@ -844,110 +872,128 @@
       const interventionCard = document.getElementById('intervention-card');
       const interventionBody = document.getElementById('intervention-card-body');
       
-      if (status === 'running') {
-        interventionCard.classList.remove('interrupted-attention', 'completed-celebration');
-        interventionBody.style.display = 'flex';
-        const activeInfo = NODE_INFO[current_node] || { title: current_node, desc: 'Processing...' };
+      const shouldRenderRightCard = (status !== lastRenderedStatus) || 
+                                    (interrupt_id !== lastRenderedInterruptId) || 
+                                    (status === 'running' && current_node !== lastRenderedNode);
+                                    
+      if (shouldRenderRightCard) {
+        lastRenderedStatus = status;
+        lastRenderedInterruptId = interrupt_id;
+        lastRenderedNode = current_node;
         
-        interventionBody.innerHTML = `
-          <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: 200px;">
-            <div class="spinner" style="width: 48px; height: 48px; border-width: 3px; color: var(--primary); margin-bottom: 1.5rem; animation: spin 1s linear infinite;"></div>
-            <h4 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-main);">Agent is Autonomous</h4>
-            <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 280px;">Currently executing: <strong style="color: var(--primary);">${activeInfo.title}</strong></p>
-          </div>
-        `;
-      } else if (status === 'interrupted') {
-        interventionCard.classList.add('interrupted-attention');
-        interventionCard.classList.remove('completed-celebration');
-        
-        const isApproval = interrupt_id.toLowerCase().includes('approve') || interrupt_id.toLowerCase().includes('confirm');
-        let actionFormHtml = '';
-        
-        if (isApproval) {
-          actionFormHtml = `
-            <div class="btn-row" style="margin-top: 1.5rem; width: 100%;">
-              <button class="btn btn-success" style="padding: 0.8rem;" onclick="submitIntervention(true, '${interrupt_id}')">
-                Approve
-              </button>
-              <button class="btn btn-danger" style="padding: 0.8rem;" onclick="submitIntervention(false, '${interrupt_id}')">
-                Reject
-              </button>
+        if (status === 'running') {
+          interventionCard.classList.remove('interrupted-attention', 'completed-celebration');
+          interventionBody.style.display = 'flex';
+          interventionBody.style.padding = '';
+          interventionBody.style.maxHeight = '';
+          interventionBody.style.overflowY = '';
+          const activeInfo = NODE_INFO[current_node] || { title: current_node, desc: 'Processing...' };
+          
+          interventionBody.innerHTML = `
+            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: 200px;">
+              <div class="spinner" style="width: 48px; height: 48px; border-width: 3px; color: var(--primary); margin-bottom: 1.5rem; animation: spin 1s linear infinite;"></div>
+              <h4 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-main);">Agent is Autonomous</h4>
+              <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 280px;">Currently executing: <strong style="color: var(--primary);">${activeInfo.title}</strong></p>
             </div>
           `;
-        } else {
-          actionFormHtml = `
-            <div style="margin-top: 1.5rem; width: 100%;">
-              <div class="input-group">
-                <input type="text" class="text-input" id="intervention-value" placeholder="Enter requested value..." required style="padding: 0.8rem;">
-                <button class="btn btn-primary" onclick="submitInterventionTextInput('${interrupt_id}')" style="padding: 0.8rem 1.5rem;">
-                  Submit
+        } else if (status === 'interrupted') {
+          interventionCard.classList.add('interrupted-attention');
+          interventionCard.classList.remove('completed-celebration');
+          
+          const isApproval = interrupt_id.toLowerCase().includes('approve') || interrupt_id.toLowerCase().includes('confirm');
+          let actionFormHtml = '';
+          
+          if (isApproval) {
+            actionFormHtml = `
+              <div class="btn-row" style="margin-top: 1.5rem; width: 100%;">
+                <button class="btn btn-success" style="padding: 0.8rem;" onclick="submitIntervention(true, '${interrupt_id}')">
+                  Approve
+                </button>
+                <button class="btn btn-danger" style="padding: 0.8rem;" onclick="submitIntervention(false, '${interrupt_id}')">
+                  Reject
                 </button>
               </div>
+            `;
+          } else {
+            actionFormHtml = `
+              <div style="margin-top: 1.5rem; width: 100%;">
+                <div class="input-group">
+                  <input type="text" class="text-input" id="intervention-value" placeholder="Enter requested value..." required style="padding: 0.8rem;">
+                  <button class="btn btn-primary" onclick="submitInterventionTextInput('${interrupt_id}')" style="padding: 0.8rem 1.5rem;">
+                    Submit
+                  </button>
+                </div>
+              </div>
+            `;
+          }
+          
+          interventionBody.style.display = 'block';
+          interventionBody.style.padding = '';
+          interventionBody.style.maxHeight = '';
+          interventionBody.style.overflowY = '';
+          interventionBody.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; width: 100%; min-height: 200px;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; color: #f59e0b; margin-bottom: 1rem; font-weight: 600;">
+                <span style="font-size: 1.2rem;">⚠️</span> Attention Required
+              </div>
+              <div class="prompt-message" style="margin-bottom: 1rem; width: 100%; font-size: 0.95rem; border-color: #f59e0b;">
+                ${message}
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                <strong>Interrupt ID:</strong> <code style="font-family: monospace; color: var(--primary);">${interrupt_id}</code>
+              </div>
+              ${actionFormHtml}
+            </div>
+          `;
+        } else if (status === 'completed') {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+          
+          interventionCard.classList.remove('interrupted-attention');
+          interventionCard.classList.add('completed-celebration');
+          
+          interventionBody.style.display = 'block';
+          interventionBody.style.textAlign = 'left';
+          interventionBody.style.maxHeight = '600px';
+          interventionBody.style.overflowY = 'auto';
+          interventionBody.style.padding = '1.5rem';
+          
+          let reportHtml = '';
+          if (typeof marked !== 'undefined' && output) {
+            reportHtml = marked.parse(output);
+          } else {
+            reportHtml = `<pre style="white-space: pre-wrap; font-size: 0.9rem; color: var(--text-main);">${output || 'No report compiled.'}</pre>`;
+          }
+          
+          interventionBody.innerHTML = `
+            <div style="margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.5rem; color: var(--success); font-weight: 600; font-size: 1.15rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+              <span style="font-size: 1.40rem;">✓</span> Completed Compliance Report
+            </div>
+            <div class="result-content" style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main);">
+              ${reportHtml}
+            </div>
+          `;
+          
+          // Automatically open premium modal
+          showModal(activeSessionId, 'Completed', output || 'No report compiled.');
+          
+        } else if (status === 'failed') {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+          
+          interventionCard.classList.remove('interrupted-attention', 'completed-celebration');
+          interventionBody.style.display = 'flex';
+          interventionBody.style.padding = '';
+          interventionBody.style.maxHeight = '';
+          interventionBody.style.overflowY = '';
+          interventionBody.innerHTML = `
+            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: 200px;">
+              <div style="font-size: 4rem; color: var(--danger); margin-bottom: 1rem;">✕</div>
+              <h4 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--danger);">Pipeline Failed</h4>
+              <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 280px;">${error || 'An unexpected error occurred.'}</p>
             </div>
           `;
         }
-        
-        interventionBody.style.display = 'block';
-        interventionBody.innerHTML = `
-          <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; width: 100%; min-height: 200px;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; color: #f59e0b; margin-bottom: 1rem; font-weight: 600;">
-              <span style="font-size: 1.2rem;">⚠️</span> Attention Required
-            </div>
-            <div class="prompt-message" style="margin-bottom: 1rem; width: 100%; font-size: 0.95rem; border-color: #f59e0b;">
-              ${message}
-            </div>
-            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-              <strong>Interrupt ID:</strong> <code style="font-family: monospace; color: var(--primary);">${interrupt_id}</code>
-            </div>
-            ${actionFormHtml}
-          </div>
-        `;
-      } else if (status === 'completed') {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-        
-        interventionCard.classList.remove('interrupted-attention');
-        interventionCard.classList.add('completed-celebration');
-        
-        interventionBody.style.display = 'flex';
-        interventionBody.innerHTML = `
-          <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: 200px;">
-            <div style="font-size: 4rem; color: var(--success); margin-bottom: 1rem; filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.3));">✓</div>
-            <h4 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--success);">Pipeline Completed</h4>
-            <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 280px;">The compliance report has been successfully generated.</p>
-          </div>
-        `;
-        
-        // Show inline output report
-        const resultContainer = document.getElementById('scan-result-container');
-        const resultTitle = document.getElementById('scan-result-title');
-        const resultContent = document.getElementById('scan-result-content');
-        
-        resultTitle.textContent = "✓ Due Diligence Completed";
-        resultTitle.style.color = "var(--success)";
-        if (typeof marked !== 'undefined' && output) {
-          resultContent.innerHTML = marked.parse(output);
-        } else {
-          resultContent.textContent = output || 'No report compiled.';
-        }
-        resultContainer.style.display = 'block';
-        
-        // Automatically open premium modal
-        showModal(activeSessionId, 'Completed', output || 'No report compiled.');
-        
-      } else if (status === 'failed') {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-        
-        interventionCard.classList.remove('interrupted-attention', 'completed-celebration');
-        interventionBody.style.display = 'flex';
-        interventionBody.innerHTML = `
-          <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: 200px;">
-            <div style="font-size: 4rem; color: var(--danger); margin-bottom: 1rem;">✕</div>
-            <h4 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--danger);">Pipeline Failed</h4>
-            <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 280px;">${error || 'An unexpected error occurred.'}</p>
-          </div>
-        `;
       }
     }
 
@@ -964,6 +1010,11 @@
 
     // Post manual action back to backend
     async function submitIntervention(value, interruptId) {
+      // Reset tracking to force a fresh render on next poll
+      lastRenderedStatus = null;
+      lastRenderedInterruptId = null;
+      lastRenderedNode = null;
+
       const interventionBody = document.getElementById('intervention-card-body');
       interventionBody.innerHTML = `
         <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: 200px;">
