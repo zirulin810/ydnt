@@ -14,7 +14,6 @@
 
 ## Workflow
 6. Git commits must follow Conventional Commits format (enforced by Hook).
-7. Default to `USE_MOCK=1` during development to preserve YouTube API quota.
 
 ## Skills Reference
 - Git conventions → `git-workflow` skill
@@ -22,7 +21,7 @@
 - Testing strategy → `testing-strategy` skill
 
 ## Testing and Code Integrity
-8. **正式碼不得為了「讓測試通過」而存在**:
+7. **正式碼不得為了「讓測試通過」而存在**:
    - 測試描述「現實與應然」，正式碼實作「正確行為」。當測試失敗時，只有兩條路：
      (a) 程式錯了 -> 修程式，讓它「普遍地」正確；
      (b) 測試前提過時 -> 回報，並更新測試使其反映新現實。
