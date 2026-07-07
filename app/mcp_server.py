@@ -28,7 +28,7 @@ from typing import Any
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-from config import CACHE_DIR, JINA_API_KEY, USE_MOCK, YOUTUBE_API_KEY
+from app.config import CACHE_DIR, JINA_API_KEY, USE_MOCK, YOUTUBE_API_KEY
 
 mcp = FastMCP("ydnt-tools")
 

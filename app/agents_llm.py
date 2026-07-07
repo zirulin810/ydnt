@@ -33,7 +33,7 @@ from app.mcp_server import (
     search_youtube,
 )
 from app.schemas import CourseProfile, CreatorEvidence, FreeAlternatives, Verdict
-from config import MODEL_JUDGMENT, MODEL_ROUTING
+from app.config import MODEL_JUDGMENT, MODEL_ROUTING
 
 # Centralized retry options for model requests
 _RETRY_OPTIONS = types.HttpRetryOptions(attempts=3)
