@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Management Dashboard</title>
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Markdown Parser: marked -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
+  <style>
+    :root {
+      --bg-color: #030712;
+      --glow-color-1: rgba(99, 102, 241, 0.15); /* Indigo glow */
+      --glow-color-2: rgba(168, 85, 247, 0.15); /* Purple glow */
+      --card-bg: rgba(255, 255, 255, 0.03);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-border-hover: rgba(255, 255, 255, 0.2);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #818cf8;
+      --success: #34d399;
+      --danger: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Radial glows in background */
+    body::before {
+      content: "";
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, var(--glow-color-1) 0%, transparent 70%);
+      top: -200px;
+      left: -200px;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: "";
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, var(--glow-color-2) 0%, transparent 70%);
+      bottom: -200px;
+      right: -200px;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    header {
+      padding: 2rem 4rem;
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(10px);
+      background: rgba(3, 7, 18, 0.5);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(to right, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-badge {
+      font-size: 0.85rem;
+      padding: 0.5rem 1rem;
+      background: rgba(129, 140, 248, 0.1);
+      border: 1px solid rgba(129, 140, 248, 0.2);
+      border-radius: 9999px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .pulse {
+      width: 8px;
+      height: 8px;
+      background-color: var(--success);
+      border-radius: 50%;
+      animation: pulse-animation 2s infinite;
+    }
+
+    @keyframes pulse-animation {
+      0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7);
+      }
+      70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
+      }
+      100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+      }
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 3rem auto;
+      padding: 0 2rem;
+    }
+
+    .scan-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      margin-bottom: 3rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    .scan-panel h3 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text-main);
+    }
+
+    .section-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 2rem;
+      color: var(--text-main);
+    }
+
+    /* Container for cards */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 2rem;
+    }
+
+    /* Glassmorphism Card style */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(130deg, rgba(255, 255, 255, 0.03) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--card-border-hover);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .session-id {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .interrupt-tag {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      padding: 0.25rem 0.6rem;
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: 4px;
+      color: #d8b4fe;
+    }
+
+    .card-body {
+      margin-bottom: 1.5rem;
+      flex-grow: 1;
+    }
+
+    .prompt-message {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: var(--text-main);
+      margin-bottom: 1rem;
+      padding: 0.8rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 3px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+    }
+
+    .payload-section {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 0.8rem;
+      font-size: 0.85rem;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .payload-title {
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .payload-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.25rem;
+    }
+
+    .payload-label {
+      color: var(--text-muted);
+    }
+
+    .payload-val {
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .card-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      margin-top: 1rem;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .text-input {
+      flex-grow: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 0.6rem 0.8rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .text-input:focus {
+      border-color: var(--primary);
+    }
+
+    .btn {
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #6366f1;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn-row .btn {
+      flex: 1;
+    }
+
+    .btn-success {
+      background: rgba(52, 211, 153, 0.15);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      color: var(--success);
+    }
+
+    .btn-success:hover {
+      background: var(--success);
+      color: #030712;
+    }
+
+    .btn-danger {
+      background: rgba(248, 113, 113, 0.15);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      color: var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: #030712;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      background: var(--card-bg);
+      border: 1px dashed var(--card-border);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+      grid-column: 1 / -1;
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      color: var(--text-muted);
+    }
+
+    .empty-text {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    /* Sliding Modal for results */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(3, 7, 18, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      right: -520px;
+      width: 520px;
+      height: 100vh;
+      background: rgba(10, 15, 30, 0.95);
+      border-left: 1px solid var(--card-border);
+      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+      z-index: 101;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      backdrop-filter: blur(20px);
+    }
+
+    .modal.active {
+      right: 0;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .modal-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .close-btn:hover {
+      color: var(--text-main);
+    }
+
+    .modal-body {
+      flex-grow: 1;
+      overflow-y: auto;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .result-section {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .result-section h4 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+      letter-spacing: 0.05em;
+    }
+
+    .result-content {
+      white-space: pre-wrap;
+      color: var(--text-main);
+      font-family: inherit;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border-left-color: currentColor;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>YDNT Agent Admin</h1>
+    <div class="status-badge">
+      <div class="pulse"></div>
+      Live Pipeline Connected
+    </div>
+  </header>
+
+  <main>
+    <!-- URL Ingestion Panel -->
+    <div class="scan-panel">
+      <h3>Analyze New Course Sales Page URL</h3>
+      <div class="input-group">
+        <input type="url" class="text-input" id="scan-url" placeholder="https://example.com/course-sales-page" required>
+        <button class="btn btn-primary" id="btn-scan">
+          Start Analysis
+        </button>
+      </div>
+      <div id="scan-loading" style="display: none; margin-top: 1rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+        <div class="spinner" style="color: var(--primary); margin-right: 0.5rem; vertical-align: middle;"></div>
+        Agent is crawling and analyzing the page (this may take 20-30 seconds)...
+      </div>
+      <!-- Inline scan results instead of sidebar popup -->
+      <div id="scan-result-container" style="display: none; margin-top: 2rem; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 12px; padding: 1.5rem; max-height: 500px; overflow-y: auto;">
+        <h4 id="scan-result-title" style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: var(--primary);">Analysis Result</h4>
+        <div id="scan-result-content" class="result-content" style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main);"></div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Pending Administrator Interventions</h2>
+    
+    <div class="dashboard-grid" id="dashboard-grid">
+      <!-- Loading placeholder -->
+      <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+        <div class="spinner" style="width: 32px; height: 32px; border-width: 3px; color: var(--primary);"></div>
+        <p style="margin-top: 1rem; color: var(--text-muted);">Scanning agent sessions...</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Overlay -->
+  <div class="modal-overlay" id="modal-overlay"></div>
+  
+  <!-- Sliding Panel Modal -->
+  <div class="modal" id="result-modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-title">Action Completed</h3>
+      <button class="close-btn" id="close-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="result-section">
+        <h4>Session ID</h4>
+        <p id="result-session-id" style="font-family: monospace; font-size: 0.85rem; word-break: break-all; color: var(--primary);"></p>
+      </div>
+      <div class="result-section">
+        <h4>Resolution Status</h4>
+        <p id="result-status" style="font-weight: 600; font-size: 1.1rem;"></p>
+      </div>
+      <div class="result-section">
+        <h4>Agent Final Compliance Review</h4>
+        <div class="result-content" id="result-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const grid = document.getElementById('dashboard-grid');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const resultModal = document.getElementById('result-modal');
+    const closeModalBtn = document.getElementById('close-modal');
+    const scanUrlInput = document.getElementById('scan-url');
+    const btnScan = document.getElementById('btn-scan');
+    const scanLoading = document.getElementById('scan-loading');
+
+    // Trigger synchronous analysis from UI
+    btnScan.addEventListener('click', async () => {
+      const url = scanUrlInput.value.trim();
+      if (!url) {
+        alert('Please enter a URL');
+        return;
+      }
+      
+      btnScan.disabled = true;
+      scanLoading.style.display = 'block';
+      
+      try {
+        const response = await fetch('/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url })
+        });
+        
+        if (!response.ok) {
+          const detail = await response.json();
+          throw new Error(detail.detail || 'Analysis failed');
+        }
+        
+        const result = await response.json();
+        
+        const resultContainer = document.getElementById('scan-result-container');
+        const resultTitle = document.getElementById('scan-result-title');
+        const resultContent = document.getElementById('scan-result-content');
+        
+        if (result.status === 'interrupted') {
+          resultTitle.textContent = "⚠️ Analysis Suspended (Input Required)";
+          resultTitle.style.color = "var(--danger)";
+          resultContent.innerHTML = `
+            <p style="margin-bottom: 1rem;">The agent crawled the sales page, but is missing critical course information:</p>
+            <blockquote style="border-left: 3px solid var(--danger); padding-left: 1rem; color: var(--text-muted); margin-bottom: 1rem; background: rgba(0,0,0,0.2); padding: 0.8rem; border-radius: 4px;">"${result.message}"</blockquote>
+            <p><strong>Please fill in the details in the cards below under "Pending Administrator Interventions" to resume the Agent's analysis.</strong></p>
+          `;
+          resultContainer.style.display = 'block';
+        } else {
+          resultTitle.textContent = "✓ Due Diligence Completed";
+          resultTitle.style.color = "var(--success)";
+          if (typeof marked !== 'undefined') {
+            resultContent.innerHTML = marked.parse(result.output);
+          } else {
+            resultContent.textContent = result.output;
+          }
+          resultContainer.style.display = 'block';
+        }
+        fetchPending();
+      } catch (err) {
+        alert(`Analysis Error: ${err.message}`);
+      } finally {
+        btnScan.disabled = false;
+        scanLoading.style.display = 'none';
+        scanUrlInput.value = '';
+      }
+    });
+
+    // Fetch and render pending sessions
+    async function fetchPending() {
+      try {
+        const response = await fetch('/api/pending');
+        if (!response.ok) throw new Error('Failed to fetch pending list');
+        const data = await response.json();
+        renderPending(data);
+      } catch (err) {
+        console.error(err);
+        grid.innerHTML = `
+          <div class="empty-state" style="border-color: var(--danger);">
+            <div class="empty-icon" style="color: var(--danger);">&times;</div>
+            <div class="empty-text" style="color: var(--danger);">Error scanning agent sessions: ${err.message}</div>
+          </div>
+        `;
+      }
+    }
+
+    function renderPending(sessions) {
+      if (!sessions || sessions.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">✓</div>
+            <div class="empty-text">All caught up! No pending sessions require your input.</div>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = '';
+      sessions.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.id = `card-${s.session_id}`;
+
+        // Build Payload description list if available
+        let payloadHtml = '';
+        if (s.course_profile && Object.keys(s.course_profile).length > 0) {
+          payloadHtml += `<div class="payload-section"><div class="payload-title">Course Profile</div>`;
+          const profile = s.course_profile;
+          if (profile.course_title) {
+            payloadHtml += `<div class="payload-item"><span class="payload-label">Title:</span><span class="payload-val">${profile.course_title}</span></div>`;
+          }
+          if (profile.creator) {
+            payloadHtml += `<div class="payload-item"><span class="payload-label">Creator:</span><span class="payload-val">${profile.creator}</span></div>`;
+          }
+          if (profile.price_usd !== undefined) {
+            payloadHtml += `<div class="payload-item"><span class="payload-label">Price:</span><span class="payload-val">$${profile.price_usd}</span></div>`;
+          }
+          if (profile.sales_page_url) {
+            payloadHtml += `<div class="payload-item"><span class="payload-label">URL:</span><span class="payload-val" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><a href="${profile.sales_page_url}" target="_blank" style="color: var(--primary); text-decoration: none;">View Page</a></span></div>`;
+          }
+          payloadHtml += `</div>`;
+        }
+
+        // Check if interrupt is yes/no (approved) or open input text
+        const isApproval = s.interrupt_id.toLowerCase().includes('approve') || s.interrupt_id.toLowerCase().includes('confirm');
+        
+        let actionFormHtml = '';
+        if (isApproval) {
+          actionFormHtml = `
+            <div class="btn-row">
+              <button class="btn btn-success" onclick="submitAction('${s.session_id}', '${s.interrupt_id}', true)">
+                Approve
+              </button>
+              <button class="btn btn-danger" onclick="submitAction('${s.session_id}', '${s.interrupt_id}', false)">
+                Reject
+              </button>
+            </div>
+          `;
+        } else {
+          // Input field for custom text (e.g. price, creator)
+          actionFormHtml = `
+            <div class="input-group">
+              <input type="text" class="text-input" id="input-${s.session_id}" placeholder="Provide missing value..." required>
+              <button class="btn btn-primary" onclick="submitTextInput('${s.session_id}', '${s.interrupt_id}')">
+                Submit
+              </button>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div>
+            <div class="card-header">
+              <span class="session-id" title="${s.session_id}">ID: ${s.session_id}</span>
+              <span class="interrupt-tag">${s.interrupt_id}</span>
+            </div>
+            <div class="card-body">
+              <p class="prompt-message">${s.message}</p>
+              ${payloadHtml}
+            </div>
+          </div>
+          <div class="card-actions" id="actions-${s.session_id}">
+            ${actionFormHtml}
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    // Submit user input for text fields
+    async function submitTextInput(sessionId, interruptId) {
+      const inputEl = document.getElementById(`input-${sessionId}`);
+      const val = inputEl.value.trim();
+      if (!val) {
+        alert('Please provide a value');
+        return;
+      }
+      
+      setCardLoading(sessionId);
+      
+      try {
+        const response = await fetch(`/api/action/${sessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            interrupt_id: interruptId,
+            value: val
+          })
+        });
+        
+        if (!response.ok) {
+          const detail = await response.json();
+          throw new Error(detail.detail || 'Action failed');
+        }
+        
+        const result = await response.json();
+        const container = document.getElementById(`actions-${sessionId}`);
+        if (container) {
+          container.innerHTML = `
+            <div style="background: rgba(129, 140, 248, 0.05); border: 1px solid rgba(129, 140, 248, 0.2); border-radius: 8px; padding: 0.8rem; font-size: 0.85rem; color: var(--text-main); margin-top: 1rem; text-align: left;">
+              ${typeof marked !== 'undefined' ? marked.parse(result.output) : result.output}
+            </div>
+          `;
+        }
+        fetchPending();
+      } catch (err) {
+        alert(`Error: ${err.message}`);
+        resetCardLoading(sessionId, interruptId, false);
+      }
+    }
+
+    // Submit approval (true/false)
+    async function submitAction(sessionId, interruptId, isApproved) {
+      setCardLoading(sessionId);
+      
+      try {
+        const response = await fetch(`/api/action/${sessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            interrupt_id: interruptId,
+            approved: isApproved
+          })
+        });
+        
+        if (!response.ok) {
+          const detail = await response.json();
+          throw new Error(detail.detail || 'Action failed');
+        }
+        
+        const result = await response.json();
+        const container = document.getElementById(`actions-${sessionId}`);
+        if (container) {
+          container.innerHTML = `
+            <div style="background: rgba(129, 140, 248, 0.05); border: 1px solid rgba(129, 140, 248, 0.2); border-radius: 8px; padding: 0.8rem; font-size: 0.85rem; color: var(--text-main); margin-top: 1rem; text-align: left;">
+              ${typeof marked !== 'undefined' ? marked.parse(result.output) : result.output}
+            </div>
+          `;
+        }
+        fetchPending();
+      } catch (err) {
+        alert(`Error: ${err.message}`);
+        resetCardLoading(sessionId, interruptId, true);
+      }
+    }
+
+    function setCardLoading(sessionId) {
+      const container = document.getElementById(`actions-${sessionId}`);
+      container.innerHTML = `
+        <div style="display: flex; justify-content: center; padding: 0.5rem;">
+          <div class="spinner" style="color: var(--primary);"></div>
+          <span style="margin-left: 0.5rem; font-size: 0.9rem; color: var(--text-muted);">Resuming agent...</span>
+        </div>
+      `;
+    }
+
+    function resetCardLoading(sessionId, interruptId, isApproval) {
+      const container = document.getElementById(`actions-${sessionId}`);
+      if (isApproval) {
+        container.innerHTML = `
+          <div class="btn-row">
+            <button class="btn btn-success" onclick="submitAction('${sessionId}', '${interruptId}', true)">
+              Approve
+            </button>
+            <button class="btn btn-danger" onclick="submitAction('${sessionId}', '${interruptId}', false)">
+              Reject
+            </button>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="input-group">
+            <input type="text" class="text-input" id="input-${sessionId}" placeholder="Provide missing value..." required>
+            <button class="btn btn-primary" onclick="submitTextInput('${sessionId}', '${interruptId}')">
+              Submit
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    function showModal(sessionId, status, text) {
+      document.getElementById('result-session-id').textContent = sessionId;
+      
+      const statusEl = document.getElementById('result-status');
+      statusEl.textContent = status;
+      if (status.includes('Approve') || status.includes('Submitted') || status.includes('Completed')) {
+        statusEl.style.color = 'var(--success)';
+      } else {
+        statusEl.style.color = 'var(--danger)';
+      }
+      
+      // Handle HTML or JSON formatting for output
+      const contentEl = document.getElementById('result-content');
+      if (typeof text === 'object') {
+        contentEl.innerHTML = `<pre style="font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; overflow-x: auto;">${JSON.stringify(text, null, 2)}</pre>`;
+      } else {
+        contentEl.textContent = text;
+      }
+
+      modalOverlay.classList.add('active');
+      resultModal.classList.add('active');
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove('active');
+      resultModal.classList.remove('active');
+    }
+
+    closeModalBtn.addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', closeModal);
+
+    // Initial fetch
+    fetchPending();
+
+    // Polling every 5 seconds
+    setInterval(fetchPending, 5000);
+  </script>
+</body>
+</html>
