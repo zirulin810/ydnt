@@ -28,20 +28,31 @@ PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
 LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-east1")
 AGENT_RUNTIME_ID = os.getenv("AGENT_RUNTIME_ID")
 
+# Ensure clean format of IDs
+engine_numeric_id = AGENT_RUNTIME_ID
+engine_full_id = AGENT_RUNTIME_ID
+
+if AGENT_RUNTIME_ID:
+    if AGENT_RUNTIME_ID.startswith("projects/"):
+        engine_numeric_id = AGENT_RUNTIME_ID.split("/")[-1]
+    else:
+        if PROJECT_ID and LOCATION:
+            engine_full_id = f"projects/{PROJECT_ID}/locations/{LOCATION}/reasoningEngines/{AGENT_RUNTIME_ID}"
+
 # Initialize Vertex AI
 if PROJECT_ID:
     vertexai.init(project=PROJECT_ID, location=LOCATION)
 
 # Initialize Session Service
 session_service = None
-if PROJECT_ID and AGENT_RUNTIME_ID:
+if PROJECT_ID and engine_numeric_id:
     try:
         session_service = VertexAiSessionService(
             project=PROJECT_ID,
             location=LOCATION,
-            agent_engine_id=AGENT_RUNTIME_ID
+            agent_engine_id=engine_numeric_id
         )
-        logger.info(f"Initialized VertexAiSessionService for engine {AGENT_RUNTIME_ID}")
+        logger.info(f"Initialized VertexAiSessionService for engine {engine_numeric_id}")
     except Exception as e:
         logger.exception("Failed to initialize VertexAiSessionService")
 
@@ -105,7 +116,7 @@ async def run_real_agent_workflow(session_id: str, url: str):
             except Exception as s_err:
                 logger.error(f"Failed to pre-create session {session_id}: {s_err}")
 
-        engine = reasoning_engines.ReasoningEngine(AGENT_RUNTIME_ID)
+        engine = reasoning_engines.ReasoningEngine(engine_full_id)
         loop = asyncio.get_running_loop()
         events = await loop.run_in_executor(
             None,
@@ -200,7 +211,7 @@ async def resume_real_agent_workflow(session_id: str, message: Any):
         "interrupt_message": ""
     })
     try:
-        engine = reasoning_engines.ReasoningEngine(AGENT_RUNTIME_ID)
+        engine = reasoning_engines.ReasoningEngine(engine_full_id)
         loop = asyncio.get_running_loop()
         events = await loop.run_in_executor(
             None,
