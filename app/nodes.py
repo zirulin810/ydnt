@@ -322,7 +322,9 @@ async def triage_course(ctx: Context, node_input: Any):
                 except ValueError:
                     reason = "User could not provide the price; due diligence cannot proceed without it."
                     ctx.state["insufficient_reason"] = reason
-                    yield Event(route="insufficient", state={"insufficient_reason": reason})
+                    yield Event(
+                        route="insufficient", state={"insufficient_reason": reason}
+                    )
                     return
         elif item == "creator":
             resolved["creator"] = str(answer).strip()

@@ -142,13 +142,21 @@ def main():
     # Verdict Decision Matrix
     # ---------------------------------------------------------------------------
     # Mode A: Deceptive/MLM/Deceptive scarcity
-    if is_recursive or recruitment_signal or (promised_outcome == "income" and scarcity_signals):
+    if (
+        is_recursive
+        or recruitment_signal
+        or (promised_outcome == "income" and scarcity_signals)
+    ):
         mode = "should_not"
     # Mode B: Good free alternatives available
     elif best_coverage_pct >= 70 and not high_extraction_cost and not any_content_farm:
         mode = "need_not"
     # Worth Buying: High credential, low-priced, messy alternatives
-    elif footprint in ["strong", "medium"] and best_coverage_pct < 80 and high_extraction_cost:
+    elif (
+        footprint in ["strong", "medium"]
+        and best_coverage_pct < 80
+        and high_extraction_cost
+    ):
         mode = "worth_buying"
     else:
         mode = "need_not"  # Default fallback

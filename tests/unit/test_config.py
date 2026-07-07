@@ -29,9 +29,12 @@ def test_configure_genai_backend_vertex(monkeypatch) -> None:
     monkeypatch.delenv("GOOGLE_CLOUD_LOCATION", raising=False)
 
     # Mock google.auth.default to succeed
-    monkeypatch.setattr(google.auth, "default", lambda: ("mock_creds", "mock-project-123"))
+    monkeypatch.setattr(
+        google.auth, "default", lambda: ("mock_creds", "mock-project-123")
+    )
 
     from config import configure_genai_backend
+
     configure_genai_backend()
 
     assert os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") == "True"
@@ -50,6 +53,7 @@ def test_configure_genai_backend_direct_fallback(monkeypatch) -> None:
     monkeypatch.setattr(google.auth, "default", mock_default)
 
     from config import configure_genai_backend
+
     configure_genai_backend()
 
     assert os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") == "False"

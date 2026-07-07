@@ -53,7 +53,9 @@ def validate(tool_call: dict) -> dict:
         # Check replacement chunks if using code editing tool
         chunks = arguments.get("ReplacementChunks", [])
         if chunks:
-            content = " ".join([chunk.get("ReplacementContent", "") for chunk in chunks])
+            content = " ".join(
+                [chunk.get("ReplacementContent", "") for chunk in chunks]
+            )
         else:
             content = arguments.get("ReplacementContent") or ""
 

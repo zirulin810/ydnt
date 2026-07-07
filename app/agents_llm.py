@@ -28,12 +28,12 @@ from google.adk.tools.google_search_agent_tool import (
 )
 from google.genai import types
 
+from app.config import MODEL_JUDGMENT, MODEL_ROUTING
 from app.mcp_server import (
     get_channel_stats,
     search_youtube,
 )
 from app.schemas import CourseProfile, CreatorEvidence, FreeAlternatives, Verdict
-from app.config import MODEL_JUDGMENT, MODEL_ROUTING
 
 # Centralized retry options for model requests
 _RETRY_OPTIONS = types.HttpRetryOptions(attempts=3)
@@ -74,7 +74,9 @@ parse_course = LlmAgent(
         "- is_course_page: Set to True ONLY if this page describes a single, specific online course or paid learning product (with a single clear title, describing the content, creator, or price of that specific course). Set to False for non-single-course pages including course catalogs, directories, lists, search results, category landing pages, platform homepages, 'browse all courses' indices, even if they list course details or multiple courses. Also set to False for news, blogs, login walls, 404 pages, 'loading...' templates, or unrelated pages. If it is doubtful but indeed focuses on a single course, set it to True to avoid false negatives.\n"
         "- missing_critical_info: List 'creator' and/or 'price' here if they cannot be found/determined on the page. Do not invent facts.\n"
         "\n"
-        "Do not invent facts. If information is missing, use default empty lists/values or null."
+        "Do not invent facts. If information is missing, use default empty lists/values or null.\n"
+        "CRITICAL: All extracted text fields (including title, creator, syllabus) must be written or translated "
+        "STRICTLY in English. Do NOT output any Chinese."
     ),
     tools=[],
     output_schema=CourseProfile,
@@ -180,10 +182,11 @@ verdict_agent = LlmAgent(
         "Do NOT populate the free_alternatives field; leave it as an empty list. It is filled in "
         "deterministically afterward from verified tool data.\n"
         "Keep BOTH the conclusion and money_vs_time CONCISE (strictly 2-3 sentences each, under 100 words).\n"
-        "CRITICAL: Write BOTH the 'conclusion' and 'money_vs_time' fields STRICTLY in English. Do NOT write in "
-        "Chinese or any other language, even if the course page is in another language. "
-        "Do NOT quote, summarize, or reproduce any raw page content or transcript text. Base your rationale "
-        "strictly and solely on the provided rubric result (recommendation, scores, and flags)."
+        "CRITICAL: All output fields (including 'conclusion', 'money_vs_time', 'red_flags', and 'green_flags') "
+        "must be written STRICTLY in English. Do NOT write or translate any part into Chinese or any other language, "
+        "even if the input data or course page is in another language. Never append or prepend any Chinese characters "
+        "or explanations. Do NOT quote, summarize, or reproduce any raw page content or transcript text. "
+        "Base your rationale strictly and solely on the provided rubric result (recommendation, scores, and flags)."
     ),
     output_schema=Verdict,
     output_key="verdict",

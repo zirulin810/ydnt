@@ -45,7 +45,7 @@ async def test_triage_course_non_course() -> None:
         "scarcity_signals": [],
         "is_pyramid_scheme": False,
         "is_course_page": False,
-        "missing_critical_info": []
+        "missing_critical_info": [],
     }
     ctx = MockContext()
     events = []
@@ -54,7 +54,9 @@ async def test_triage_course_non_course() -> None:
     assert len(events) == 1
     event = events[0]
     assert event.actions.route == "insufficient"
-    assert "course due diligence does not apply" in ctx.state.get("insufficient_reason", "")
+    assert "course due diligence does not apply" in ctx.state.get(
+        "insufficient_reason", ""
+    )
 
 
 @pytest.mark.asyncio
@@ -69,7 +71,7 @@ async def test_triage_course_is_course() -> None:
         "scarcity_signals": [],
         "is_pyramid_scheme": False,
         "is_course_page": True,
-        "missing_critical_info": []
+        "missing_critical_info": [],
     }
     ctx = MockContext()
     events = []
@@ -93,7 +95,7 @@ async def test_triage_course_hitl_missing_price_suspend() -> None:
         "scarcity_signals": [],
         "is_pyramid_scheme": False,
         "is_course_page": True,
-        "missing_critical_info": ["price"]
+        "missing_critical_info": ["price"],
     }
     ctx = MockContext()
     events = []
@@ -117,7 +119,7 @@ async def test_triage_course_hitl_missing_price_resume_ok() -> None:
         "scarcity_signals": [],
         "is_pyramid_scheme": False,
         "is_course_page": True,
-        "missing_critical_info": ["price"]
+        "missing_critical_info": ["price"],
     }
     ctx = MockContext(state={"course_profile": profile})
     ctx.resume_inputs = {"price": {"value": "49.99"}}
@@ -143,7 +145,7 @@ async def test_triage_course_hitl_missing_price_resume_free() -> None:
         "scarcity_signals": [],
         "is_pyramid_scheme": False,
         "is_course_page": True,
-        "missing_critical_info": ["price"]
+        "missing_critical_info": ["price"],
     }
     ctx = MockContext(state={"course_profile": profile})
     ctx.resume_inputs = {"price": {"value": "free"}}
@@ -168,7 +170,7 @@ async def test_triage_course_hitl_missing_price_resume_unknown() -> None:
         "scarcity_signals": [],
         "is_pyramid_scheme": False,
         "is_course_page": True,
-        "missing_critical_info": ["price"]
+        "missing_critical_info": ["price"],
     }
     ctx = MockContext(state={"course_profile": profile})
     ctx.resume_inputs = {"price": {"value": "unknown"}}
@@ -178,7 +180,9 @@ async def test_triage_course_hitl_missing_price_resume_unknown() -> None:
     assert len(events) == 1
     ev = events[0]
     assert ev.actions.route == "insufficient"
-    assert "User could not provide the price" in ctx.state.get("insufficient_reason", "")
+    assert "User could not provide the price" in ctx.state.get(
+        "insufficient_reason", ""
+    )
 
 
 def test_hitl_workflow_runner_pause_resume() -> None:
@@ -194,7 +198,7 @@ def test_hitl_workflow_runner_pause_resume() -> None:
             "scarcity_signals": [],
             "is_pyramid_scheme": False,
             "is_course_page": True,
-            "missing_critical_info": ["price"]
+            "missing_critical_info": ["price"],
         }
         ctx.state["course_profile"] = profile
         return profile
@@ -204,24 +208,24 @@ def test_hitl_workflow_runner_pause_resume() -> None:
         edges=[
             Edge(from_node=START, to_node=seed_node),
             Edge(from_node=seed_node, to_node=triage_course),
-        ]
+        ],
     )
 
     test_app = App(
         root_agent=test_wf,
         name="test_hitl_runner_app",
-        resumability_config=ResumabilityConfig(is_resumable=True)
+        resumability_config=ResumabilityConfig(is_resumable=True),
     )
 
     runner = InMemoryRunner(app=test_app)
     runner.session_service.create_session_sync(
-        user_id="user_test",
-        app_name=runner.app_name,
-        session_id="sess_test"
+        user_id="user_test", app_name=runner.app_name, session_id="sess_test"
     )
 
     msg1 = types.Content(role="user", parts=[types.Part.from_text(text="start")])
-    events1 = list(runner.run(user_id="user_test", session_id="sess_test", new_message=msg1))
+    events1 = list(
+        runner.run(user_id="user_test", session_id="sess_test", new_message=msg1)
+    )
 
     assert len(events1) == 2
     ev_pause = events1[1]
@@ -237,14 +241,16 @@ def test_hitl_workflow_runner_pause_resume() -> None:
         parts=[
             types.Part(
                 function_response=types.FunctionResponse(
-                    id="price",
-                    name="adk_request_input",
-                    response={"value": "29.99"}
+                    id="price", name="adk_request_input", response={"value": "29.99"}
                 )
             )
-        ]
+        ],
     )
-    events2 = list(runner.run(user_id="user_test", session_id="sess_test", new_message=resumption_message))
+    events2 = list(
+        runner.run(
+            user_id="user_test", session_id="sess_test", new_message=resumption_message
+        )
+    )
 
     assert len(events2) == 1
     ev_ok = events2[0]

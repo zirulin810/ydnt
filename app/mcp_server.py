@@ -144,7 +144,6 @@ def _mock_get_channel_stats(channel_id: str) -> dict[str, Any]:
     )
 
 
-
 # ---------------------------------------------------------------------------
 # Live Implementations
 # ---------------------------------------------------------------------------
@@ -163,7 +162,9 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
             headers["X-Return-Format"] = "markdown"
         if jina_api_key:
             headers["Authorization"] = f"Bearer {jina_api_key}"
-        response = httpx.get(jina_url, headers=headers, timeout=25.0, follow_redirects=True)
+        response = httpx.get(
+            jina_url, headers=headers, timeout=25.0, follow_redirects=True
+        )
         response.raise_for_status()
         return response.text.strip()
 
@@ -198,13 +199,17 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
 
     # Detect if the best result is still like a partial page / has loading
     text_lower = best_result.lower() if best_result else ""
-    has_loading = any(ind in text_lower for ind in ["loading...", "loading data", "please wait", "citation loading"])
+    has_loading = any(
+        ind in text_lower
+        for ind in ["loading...", "loading data", "please wait", "citation loading"]
+    )
     is_partial = (not best_result) or (len(best_result) < 1200) or has_loading
 
     if is_partial:
         # Cache-bypass retry attempt
         try:
             import time
+
             ts = int(time.time())
             sep = "&" if "?" in url_or_case else "?"
             bypass_url = f"{url_or_case}{sep}t={ts}"
@@ -240,9 +245,7 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
             return cleaned
 
     err_msg = "; ".join(errors) or "Returned empty content from all attempts."
-    raise RuntimeError(
-        f"Live sales page fetch failed for {url_or_case}: {err_msg}"
-    )
+    raise RuntimeError(f"Live sales page fetch failed for {url_or_case}: {err_msg}")
 
 
 def _live_search_youtube(query: str) -> list[dict[str, Any]]:
@@ -299,8 +302,11 @@ def _live_search_youtube(query: str) -> list[dict[str, Any]]:
 
 def _live_get_youtube_transcript(video_id: str) -> str:
     from youtube_transcript_api import YouTubeTranscriptApi
+
     try:
-        data = YouTubeTranscriptApi().fetch(video_id, languages=["en", "zh-TW", "zh-CN", "zh"])
+        data = YouTubeTranscriptApi().fetch(
+            video_id, languages=["en", "zh-TW", "zh-CN", "zh"]
+        )
         parts = []
         for item in data:
             if isinstance(item, dict):
@@ -345,7 +351,9 @@ def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
         data = resp.json()
         items = data.get("items", [])
         if not items:
-            return _channel_stats_not_found(channel_id, "channel not found / empty response")
+            return _channel_stats_not_found(
+                channel_id, "channel not found / empty response"
+            )
         item = items[0]
         snippet = item.get("snippet", {})
         statistics = item.get("statistics", {})
@@ -371,7 +379,6 @@ def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
         return _channel_stats_not_found(channel_id, f"fetch error ({detail})")
     except Exception as e:
         return _channel_stats_not_found(channel_id, f"fetch error: {e}")
-
 
 
 # ---------------------------------------------------------------------------
@@ -415,6 +422,7 @@ def get_channel_stats(channel_id: str) -> dict[str, Any]:
     if USE_MOCK:
         return _mock_get_channel_stats(channel_id)
     return _live_get_channel_stats(channel_id)
+
 
 if __name__ == "__main__":
     mcp.run()

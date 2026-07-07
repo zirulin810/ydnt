@@ -35,7 +35,10 @@ class CourseProfile(BaseModel):
     platform: str = Field(
         description="The host platform, e.g., skool, whop, gumroad, udemy, youtube."
     )
-    price_usd: float | None = Field(default=None, description="The price of the course in USD, or null if not found.")
+    price_usd: float | None = Field(
+        default=None,
+        description="The price of the course in USD, or null if not found.",
+    )
     promised_outcome: Literal["income", "skill", "unknown"] = Field(
         description="The type of outcome promised: making income/money or learning a skill."
     )
@@ -49,14 +52,14 @@ class CourseProfile(BaseModel):
     )
     is_pyramid_scheme: bool = Field(
         default=False,
-        description="Whether the core value proposition of the course is based on recruiting others, reselling the same course, or building an audience/following just to sell them the exact same money-making program (self-replicating pyramid scheme). Explicitly exclude legitimate skill-based, professional, or certification courses (e.g. yoga teacher training, coding bootcamps, certified professional paths) even if students will teach, consult, or earn money after completing them."
+        description="Whether the core value proposition of the course is based on recruiting others, reselling the same course, or building an audience/following just to sell them the exact same money-making program (self-replicating pyramid scheme). Explicitly exclude legitimate skill-based, professional, or certification courses (e.g. yoga teacher training, coding bootcamps, certified professional paths) even if students will teach, consult, or earn money after completing them.",
     )
     is_course_page: bool = Field(
         description="Whether this page is the detail, sales, or enrollment page of a single, specific online course or paid product. Course catalogs, course lists, search results, category pages, platform homepages, 'browse all courses' indices, and other 'non-single-course' pages, as well as news, blogs, login walls, or 404 pages, are False."
     )
     missing_critical_info: list[Literal["creator", "price"]] = Field(
         default_factory=list,
-        description="List of missing critical info like 'creator' or 'price' that cannot be found on the page."
+        description="List of missing critical info like 'creator' or 'price' that cannot be found on the page.",
     )
 
 
@@ -108,8 +111,10 @@ class FreeAlternatives(BaseModel):
 class Verdict(BaseModel):
     """The final verdict and due diligence report for the course."""
 
-    recommendation: Literal["should_not", "need_not", "situational", "worthy", "insufficient"] = Field(
-        description="The final evaluation recommendation: should not buy (should_not), need not buy (need_not), situational (課有料且可信, 但覆蓋率校準後的性價比屬邊際, 是否購買由使用者權衡), worthy, or insufficient info."
+    recommendation: Literal[
+        "should_not", "need_not", "situational", "worthy", "insufficient"
+    ] = Field(
+        description="The final evaluation recommendation: should not buy (should_not), need not buy (need_not), situational (the course has content and is credible, but cost-benefit ratio adjusted by coverage is marginal, so purchase is up to the user to weigh), worthy, or insufficient info."
     )
     red_flags: list[str] = Field(
         default_factory=list,
@@ -130,5 +135,5 @@ class Verdict(BaseModel):
     )
     free_alternatives: list[FreeAlternative] = Field(
         default_factory=list,
-        description="The free alternative resources (with links) surfaced during due diligence."
+        description="The free alternative resources (with links) surfaced during due diligence.",
     )

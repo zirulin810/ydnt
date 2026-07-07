@@ -27,7 +27,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class Reason:
-    severity: str   # "red" 或 "green"
+    severity: str  # "red" 或 "green"
     message: str
 
 
@@ -88,21 +88,42 @@ def score_content(profile: dict[str, Any]) -> tuple[int, list[Reason]]:
     reasons = []
     if score == 1:
         if is_pyramid_scheme:
-            reasons.append(Reason("red", "Pyramid Scheme: Course revolves around recruiting or reselling the course itself."))
+            reasons.append(
+                Reason(
+                    "red",
+                    "Pyramid Scheme: Course revolves around recruiting or reselling the course itself.",
+                )
+            )
         if promised_outcome == "income":
-            reasons.append(Reason("red", "Income Promises: Marketing promises financial earnings."))
+            reasons.append(
+                Reason("red", "Income Promises: Marketing promises financial earnings.")
+            )
         if scarcity_signals:
-            reasons.append(Reason("red", f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."))
+            reasons.append(
+                Reason(
+                    "red",
+                    f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}.",
+                )
+            )
     else:
-        reasons.append(Reason("green", "Teaches concrete technical or business skills."))
+        reasons.append(
+            Reason("green", "Teaches concrete technical or business skills.")
+        )
 
         if promised_outcome == "income":
-            reasons.append(Reason("red", "Income Promises: Marketing promises financial earnings."))
+            reasons.append(
+                Reason("red", "Income Promises: Marketing promises financial earnings.")
+            )
         elif promised_outcome == "skill":
             reasons.append(Reason("green", "Skill acquisition promise."))
 
         if scarcity_signals:
-            reasons.append(Reason("red", f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}."))
+            reasons.append(
+                Reason(
+                    "red",
+                    f"Scarcity Manipulation: Marketing uses: {', '.join(scarcity_signals)}.",
+                )
+            )
 
     return score, reasons
 
@@ -133,11 +154,26 @@ def score_creator(evidence: dict[str, Any]) -> tuple[int, list[Reason]]:
 
     reasons = []
     if footprint == "weak" and only_sells:
-        reasons.append(Reason("red", "Weak Footprint: Creator has no notable independent professional achievements."))
+        reasons.append(
+            Reason(
+                "red",
+                "Weak Footprint: Creator has no notable independent professional achievements.",
+            )
+        )
     elif track_record:
-        reasons.append(Reason("green", "Credible Creator: verifiable professional or organizational standing."))
+        reasons.append(
+            Reason(
+                "green",
+                "Credible Creator: verifiable professional or organizational standing.",
+            )
+        )
     elif score == 1:
-        reasons.append(Reason("red", "Unverifiable Creator: no verifiable online footprint could be found."))
+        reasons.append(
+            Reason(
+                "red",
+                "Unverifiable Creator: no verifiable online footprint could be found.",
+            )
+        )
 
     return score, reasons
 
@@ -233,10 +269,9 @@ def decide_recommendation(
 
     # flags: veto 時取 content 和 creator 的 red 理由;否則匯集所有理由
     if content_score == 1 or creator_score == 1:
-        selected = (
-            [r for r in reasons.get("content", []) if r.severity == "red"]
-            + [r for r in reasons.get("creator", []) if r.severity == "red"]
-        )
+        selected = [r for r in reasons.get("content", []) if r.severity == "red"] + [
+            r for r in reasons.get("creator", []) if r.severity == "red"
+        ]
     else:
         selected = [r for rs in reasons.values() for r in rs]
 

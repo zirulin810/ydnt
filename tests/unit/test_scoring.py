@@ -112,7 +112,9 @@ def test_score_content() -> None:
 def test_score_content_reasons_ground_truth() -> None:
     """Tests that score_content reasons contain correct ground-truth assertions."""
     # score_content(is_pyramid_scheme) -> returns red reason with "Pyramid Scheme"
-    score, reasons = score_content({"promised_outcome": "skill", "is_pyramid_scheme": True})
+    score, reasons = score_content(
+        {"promised_outcome": "skill", "is_pyramid_scheme": True}
+    )
     assert score == 1
     red_reasons = [r for r in reasons if r.severity == "red"]
     green_reasons = [r for r in reasons if r.severity == "green"]
@@ -238,7 +240,9 @@ def test_decide_recommendation_scores_only() -> None:
 
     # 6. price_usd is None -> situational (eff_score = 3)
     scores = {"content_score": 4, "creator_score": 4}
-    rec, _, _ = decide_recommendation(scores, {}, price_usd=None, best_coverage_pct=50.0)
+    rec, _, _ = decide_recommendation(
+        scores, {}, price_usd=None, best_coverage_pct=50.0
+    )
     assert rec == "situational"
 
     # 7. Free (price_usd <= 0) -> worthy (eff_score = 5)
@@ -248,12 +252,16 @@ def test_decide_recommendation_scores_only() -> None:
 
     # 8. $50 @ 80% coverage -> situational
     scores = {"content_score": 4, "creator_score": 4}
-    rec, _, _ = decide_recommendation(scores, {}, price_usd=50.0, best_coverage_pct=80.0)
+    rec, _, _ = decide_recommendation(
+        scores, {}, price_usd=50.0, best_coverage_pct=80.0
+    )
     assert rec == "situational"
 
     # 9. $50 @ 90% coverage -> need_not
     scores = {"content_score": 4, "creator_score": 4}
-    rec, _, _ = decide_recommendation(scores, {}, price_usd=50.0, best_coverage_pct=90.0)
+    rec, _, _ = decide_recommendation(
+        scores, {}, price_usd=50.0, best_coverage_pct=90.0
+    )
     assert rec == "need_not"
 
 
@@ -263,14 +271,22 @@ def test_decide_recommendation_veto_flags() -> None:
     scores = {"content_score": 1, "creator_score": 4}
     reasons = {
         "content": [
-            Reason("red", "Pyramid Scheme: Course revolves around recruiting or reselling the course itself."),
-            Reason("green", "Teaches concrete technical or business skills.")
+            Reason(
+                "red",
+                "Pyramid Scheme: Course revolves around recruiting or reselling the course itself.",
+            ),
+            Reason("green", "Teaches concrete technical or business skills."),
         ],
         "creator": [
-            Reason("red", "Weak Footprint: Creator has no notable independent professional achievements.")
-        ]
+            Reason(
+                "red",
+                "Weak Footprint: Creator has no notable independent professional achievements.",
+            )
+        ],
     }
-    rec, red_flags, green_flags = decide_recommendation(scores, reasons, price_usd=0.0, best_coverage_pct=0.0)
+    rec, red_flags, green_flags = decide_recommendation(
+        scores, reasons, price_usd=0.0, best_coverage_pct=0.0
+    )
     assert rec == "should_not"
     assert len(red_flags) == 2
     assert any("Pyramid" in flag for flag in red_flags)
@@ -280,14 +296,17 @@ def test_decide_recommendation_veto_flags() -> None:
     # 2. creator veto
     scores = {"content_score": 4, "creator_score": 1}
     reasons = {
-        "content": [
-            Reason("red", "Some content red flag")
-        ],
+        "content": [Reason("red", "Some content red flag")],
         "creator": [
-            Reason("red", "Unverifiable Creator: no verifiable online footprint could be found.")
-        ]
+            Reason(
+                "red",
+                "Unverifiable Creator: no verifiable online footprint could be found.",
+            )
+        ],
     }
-    rec, red_flags, green_flags = decide_recommendation(scores, reasons, price_usd=0.0, best_coverage_pct=0.0)
+    rec, red_flags, green_flags = decide_recommendation(
+        scores, reasons, price_usd=0.0, best_coverage_pct=0.0
+    )
     assert rec == "should_not"
     assert len(red_flags) == 2
     assert any("Some content" in flag for flag in red_flags)
@@ -300,16 +319,21 @@ def test_decide_recommendation_non_veto_flags() -> None:
     reasons = {
         "content": [
             Reason("green", "Teaches concrete technical or business skills."),
-            Reason("red", "Income Promises: Marketing promises financial earnings.")
+            Reason("red", "Income Promises: Marketing promises financial earnings."),
         ],
         "creator": [
-            Reason("green", "Credible Creator: verifiable professional or organizational standing.")
+            Reason(
+                "green",
+                "Credible Creator: verifiable professional or organizational standing.",
+            )
         ],
         "alt": [
             Reason("red", "Content Farm: Free alternatives are bloated or low-quality.")
-        ]
+        ],
     }
-    rec, red_flags, green_flags = decide_recommendation(scores, reasons, price_usd=0.0, best_coverage_pct=0.0)
+    rec, red_flags, green_flags = decide_recommendation(
+        scores, reasons, price_usd=0.0, best_coverage_pct=0.0
+    )
     assert rec == "worthy"
     assert len(red_flags) == 2
     assert any("Income" in flag for flag in red_flags)

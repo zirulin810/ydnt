@@ -113,10 +113,16 @@ def test_live_mode_fetch_sales_page_fallback_longer(monkeypatch) -> None:
         headers = kwargs.get("headers", {})
         if "X-Return-Format" not in headers:
             # First attempt: short content
-            return httpx.Response(200, text="Short content " * 5, request=httpx.Request("GET", url))
+            return httpx.Response(
+                200, text="Short content " * 5, request=httpx.Request("GET", url)
+            )
         else:
             # Second attempt: longer content
-            return httpx.Response(200, text="Longer content markdown format " * 40, request=httpx.Request("GET", url))
+            return httpx.Response(
+                200,
+                text="Longer content markdown format " * 40,
+                request=httpx.Request("GET", url),
+            )
 
     monkeypatch.setattr(httpx, "get", mock_get)
 
@@ -186,7 +192,9 @@ def test_live_mode_get_channel_stats_empty_response(monkeypatch) -> None:
     monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", "fake_key")
 
     def mock_get(*args, **kwargs):
-        return httpx.Response(200, json={"items": []}, request=httpx.Request("GET", args[0]))
+        return httpx.Response(
+            200, json={"items": []}, request=httpx.Request("GET", args[0])
+        )
 
     monkeypatch.setattr(httpx, "get", mock_get)
 
@@ -216,7 +224,10 @@ def test_live_mode_get_youtube_transcript_success(monkeypatch) -> None:
             ]
 
     import youtube_transcript_api
-    monkeypatch.setattr(youtube_transcript_api, "YouTubeTranscriptApi", MockYouTubeTranscriptApi)
+
+    monkeypatch.setattr(
+        youtube_transcript_api, "YouTubeTranscriptApi", MockYouTubeTranscriptApi
+    )
 
     text = get_youtube_transcript("video_123")
     assert text == "Hello world This is a transcript"
@@ -231,7 +242,10 @@ def test_live_mode_get_youtube_transcript_failure(monkeypatch) -> None:
             raise Exception("Transcript disabled")
 
     import youtube_transcript_api
-    monkeypatch.setattr(youtube_transcript_api, "YouTubeTranscriptApi", MockYouTubeTranscriptApi)
+
+    monkeypatch.setattr(
+        youtube_transcript_api, "YouTubeTranscriptApi", MockYouTubeTranscriptApi
+    )
 
     with pytest.raises(RuntimeError):
         get_youtube_transcript("video_123")
@@ -242,9 +256,12 @@ def test_get_youtube_transcript_truncation(monkeypatch) -> None:
     monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
 
     long_str = "A" * 4000
-    monkeypatch.setattr("app.mcp_server._mock_get_youtube_transcript", lambda vid: long_str)
+    monkeypatch.setattr(
+        "app.mcp_server._mock_get_youtube_transcript", lambda vid: long_str
+    )
 
     from app.mcp_server import MAX_TRANSCRIPT_CHARS
+
     result = get_youtube_transcript("video_123")
     assert len(result) <= MAX_TRANSCRIPT_CHARS + len(" [TRUNCATED]")
     assert result.endswith("[TRUNCATED]")
@@ -285,13 +302,21 @@ def test_live_mode_fetch_sales_page_cache_bypass_retry(monkeypatch) -> None:
         # Check if the URL has cache bypass query parameter "t="
         if "t=" in url:
             # Bypass request: returns the full course page
-            return httpx.Response(200, text="Complete course content! " * 80, request=httpx.Request("GET", url))
+            return httpx.Response(
+                200,
+                text="Complete course content! " * 80,
+                request=httpx.Request("GET", url),
+            )
 
         # Initial request: returns a "loading" / short text
         if "X-Return-Format" not in headers:
-            return httpx.Response(200, text="Loading... please wait.", request=httpx.Request("GET", url))
+            return httpx.Response(
+                200, text="Loading... please wait.", request=httpx.Request("GET", url)
+            )
         else:
-            return httpx.Response(200, text="Short fallback text", request=httpx.Request("GET", url))
+            return httpx.Response(
+                200, text="Short fallback text", request=httpx.Request("GET", url)
+            )
 
     monkeypatch.setattr(httpx, "get", mock_get)
 
@@ -308,4 +333,3 @@ def test_live_mode_fetch_sales_page_cache_bypass_retry(monkeypatch) -> None:
     assert bypass_headers.get("X-Timeout") == "15"
 
     assert "Complete course content!" in result
-

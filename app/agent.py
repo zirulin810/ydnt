@@ -53,7 +53,9 @@ root_agent = Workflow(
             route="insufficient",
         ),
         Edge(from_node=parse_course, to_node=triage_course),
-        Edge(from_node=triage_course, to_node=insufficient_verdict, route="insufficient"),
+        Edge(
+            from_node=triage_course, to_node=insufficient_verdict, route="insufficient"
+        ),
         # Full linear analysis path
         Edge(from_node=triage_course, to_node=creator_verify, route="ok"),
         Edge(from_node=creator_verify, to_node=prepare_free_alt_input),
@@ -68,5 +70,5 @@ root_agent = Workflow(
 app = App(
     root_agent=root_agent,
     name="app",
-    resumability_config=ResumabilityConfig(is_resumable=True)
+    resumability_config=ResumabilityConfig(is_resumable=True),
 )

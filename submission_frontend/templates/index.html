@@ -32,6 +32,16 @@
       padding: 0;
     }
 
+    a, a:visited {
+      color: var(--primary) !important;
+      text-decoration: underline;
+      transition: color 0.2s;
+    }
+
+    a:hover {
+      color: #a5b4fc !important;
+    }
+
     body {
       background-color: var(--bg-color);
       color: var(--text-main);
@@ -653,35 +663,7 @@
     </div>
   </main>
 
-  <!-- Modal Overlay -->
-  <div class="modal-overlay" id="modal-overlay"></div>
-  
-  <!-- Sliding Panel Modal -->
-  <div class="modal" id="result-modal">
-    <div class="modal-header">
-      <h3 class="modal-title" id="modal-title">Action Completed</h3>
-      <button class="close-btn" id="close-modal">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="result-section">
-        <h4>Session ID</h4>
-        <p id="result-session-id" style="font-family: monospace; font-size: 0.85rem; word-break: break-all; color: var(--primary);"></p>
-      </div>
-      <div class="result-section">
-        <h4>Resolution Status</h4>
-        <p id="result-status" style="font-weight: 600; font-size: 1.1rem;"></p>
-      </div>
-      <div class="result-section">
-        <h4>Agent Final Compliance Review</h4>
-        <div class="result-content" id="result-content"></div>
-      </div>
-    </div>
-  </div>
-
   <script>
-    const modalOverlay = document.getElementById('modal-overlay');
-    const resultModal = document.getElementById('result-modal');
-    const closeModalBtn = document.getElementById('close-modal');
     const scanUrlInput = document.getElementById('scan-url');
     const btnScan = document.getElementById('btn-scan');
     const scanLoading = document.getElementById('scan-loading');
@@ -974,8 +956,7 @@
             </div>
           `;
           
-          // Automatically open premium modal
-          showModal(activeSessionId, 'Completed', output || 'No report compiled.');
+
           
         } else if (status === 'failed') {
           clearInterval(pollingInterval);
@@ -1050,32 +1031,7 @@
       }
     }
 
-    // Modal helpers
-    function showModal(sessionId, status, text) {
-      document.getElementById('result-session-id').textContent = sessionId;
-      
-      const statusEl = document.getElementById('result-status');
-      statusEl.textContent = status;
-      statusEl.style.color = 'var(--success)';
-      
-      const contentEl = document.getElementById('result-content');
-      if (typeof marked !== 'undefined') {
-        contentEl.innerHTML = marked.parse(text);
-      } else {
-        contentEl.textContent = text;
-      }
 
-      modalOverlay.classList.add('active');
-      resultModal.classList.add('active');
-    }
-
-    function closeModal() {
-      modalOverlay.classList.remove('active');
-      resultModal.classList.remove('active');
-    }
-
-    closeModalBtn.addEventListener('click', closeModal);
-    modalOverlay.addEventListener('click', closeModal);
   </script>
 </body>
 </html>
