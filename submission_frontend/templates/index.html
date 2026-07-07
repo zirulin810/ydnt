@@ -607,14 +607,8 @@
         const resultContent = document.getElementById('scan-result-content');
         
         if (result.status === 'interrupted') {
-          resultTitle.textContent = "⚠️ Analysis Suspended (Input Required)";
-          resultTitle.style.color = "var(--danger)";
-          resultContent.innerHTML = `
-            <p style="margin-bottom: 1rem;">The agent crawled the sales page, but is missing critical course information:</p>
-            <blockquote style="border-left: 3px solid var(--danger); padding-left: 1rem; color: var(--text-muted); margin-bottom: 1rem; background: rgba(0,0,0,0.2); padding: 0.8rem; border-radius: 4px;">"${result.message}"</blockquote>
-            <p><strong>Please fill in the details in the cards below under "Pending Administrator Interventions" to resume the Agent's analysis.</strong></p>
-          `;
-          resultContainer.style.display = 'block';
+          // Hide upper notification container per user request
+          resultContainer.style.display = 'none';
         } else {
           resultTitle.textContent = "✓ Due Diligence Completed";
           resultTitle.style.color = "var(--success)";
@@ -742,6 +736,9 @@
             </div>
             <div class="card-body">
               <p class="prompt-message">${s.message}</p>
+              <div style="margin-bottom: 1rem; font-size: 0.85rem; background: rgba(255,152,0,0.1); border-left: 3px solid #ff9800; padding: 0.5rem; border-radius: 4px;">
+                <strong>Current Node:</strong> <code style="font-family: monospace; color: #ff9800;">${s.current_node || 'START'}</code>
+              </div>
               ${payloadHtml}
             </div>
           </div>

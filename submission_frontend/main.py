@@ -184,6 +184,33 @@ async def post_scan(req: ScanRequest):
 
 @app.get("/api/pending")
 async def get_pending():
+    if os.getenv("LOCAL_TEST") == "1":
+        return [
+            {
+                "session_id": "test-session-123456",
+                "interrupt_id": "creator_verify_approve",
+                "message": "Please confirm if the course creator is indeed 'John Doe'.",
+                "course_profile": {
+                    "course_title": "Advanced Python Programming",
+                    "creator": "John Doe",
+                    "price_usd": 99.99,
+                    "sales_page_url": "https://example.com/python-course"
+                },
+                "current_node": "creator_verify"
+            },
+            {
+                "session_id": "test-session-789012",
+                "interrupt_id": "price_verify_input",
+                "message": "The sales page lists multiple price points. Please enter the correct price in USD.",
+                "course_profile": {
+                    "course_title": "Super SEO Hacks",
+                    "creator": "Jane Smith",
+                    "price_usd": 0.0,
+                    "sales_page_url": "https://example.com/seo-hacks"
+                },
+                "current_node": "price_verify"
+            }
+        ]
     if not session_service:
         return []
     try:
@@ -216,11 +243,19 @@ async def get_pending():
                 for interrupt_id, args in calls.items():
                     if interrupt_id not in responses:
                         course_profile = session.state.get("course_profile", {})
+                        
+                        # Get the last non-empty node_name
+                        current_node = "START"
+                        for event in session.events:
+                            if event.node_name:
+                                current_node = event.node_name
+                                
                         pending_approvals.append({
                             "session_id": session.id,
                             "interrupt_id": interrupt_id,
                             "message": args.get("message", "Input required"),
-                            "course_profile": course_profile
+                            "course_profile": course_profile,
+                            "current_node": current_node
                         })
             except Exception as s_err:
                 logger.error(f"Error checking session {session_info.id}: {s_err}")
@@ -233,6 +268,8 @@ async def get_pending():
 
 @app.post("/api/action/{session_id}")
 async def post_action(session_id: str, req: ActionRequest):
+    if os.getenv("LOCAL_TEST") == "1":
+        return {"status": "success", "output": "# YDNT Due Diligence Report\n\n### **Recommendation**: `APPROVED` (Confidence: HIGH)\n\n#### **Conclusion**\nSuccessfully resumed and verified mock session!"}
     if not AGENT_RUNTIME_ID:
         raise HTTPException(status_code=500, detail="AGENT_RUNTIME_ID environment variable not set")
     try:
