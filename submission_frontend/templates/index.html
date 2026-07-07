@@ -573,6 +573,9 @@
     const scanUrlInput = document.getElementById('scan-url');
     const btnScan = document.getElementById('btn-scan');
     const scanLoading = document.getElementById('scan-loading');
+    
+    // Tracks sessions currently in the resume transition to prevent polling from reverting card state
+    const resumingSessions = new Set();
 
     // Trigger synchronous analysis from UI
     btnScan.addEventListener('click', async () => {
@@ -638,6 +641,15 @@
         const response = await fetch('/api/pending');
         if (!response.ok) throw new Error('Failed to fetch pending list');
         const data = await response.json();
+        
+        // Clean up resuming sessions that are no longer in the pending list
+        const activePendingIds = new Set(data.map(s => s.session_id));
+        for (const rId of resumingSessions) {
+          if (!activePendingIds.has(rId)) {
+            resumingSessions.delete(rId);
+          }
+        }
+        
         renderPending(data);
       } catch (err) {
         console.error(err);
@@ -689,9 +701,17 @@
 
         // Check if interrupt is yes/no (approved) or open input text
         const isApproval = s.interrupt_id.toLowerCase().includes('approve') || s.interrupt_id.toLowerCase().includes('confirm');
+        const isResuming = resumingSessions.has(s.session_id);
         
         let actionFormHtml = '';
-        if (isApproval) {
+        if (isResuming) {
+          actionFormHtml = `
+            <div style="background: rgba(129, 140, 248, 0.05); border: 1px solid rgba(129, 140, 248, 0.2); border-radius: 8px; padding: 0.8rem; font-size: 0.85rem; color: var(--text-main); text-align: left;">
+              <strong>已成功恢復執行！</strong><br>
+              Agent 正在背景分析大綱與搜尋 YouTube 替代方案，約需 30 到 60 秒。
+            </div>
+          `;
+        } else if (isApproval) {
           actionFormHtml = `
             <div class="btn-row">
               <button class="btn btn-success" onclick="submitAction('${s.session_id}', '${s.interrupt_id}', true)">
@@ -742,6 +762,7 @@
         return;
       }
       
+      resumingSessions.add(sessionId);
       setCardLoading(sessionId);
       
       try {
@@ -777,6 +798,7 @@
 
     // Submit approval (true/false)
     async function submitAction(sessionId, interruptId, isApproved) {
+      resumingSessions.add(sessionId);
       setCardLoading(sessionId);
       
       try {
