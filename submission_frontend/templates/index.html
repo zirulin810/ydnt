@@ -496,6 +496,105 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    /* Timeline styles */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      width: 100%;
+      text-align: left;
+      padding: 0.5rem;
+    }
+    .timeline-item {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      position: relative;
+    }
+    .timeline-item:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 11px;
+      top: 24px;
+      bottom: -18px;
+      width: 2px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .timeline-item.completed:not(:last-child)::after {
+      background: var(--success);
+    }
+    .timeline-badge {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.03);
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      z-index: 1;
+      transition: all 0.3s ease;
+      color: var(--text-muted);
+    }
+    .timeline-item.completed .timeline-badge {
+      background: rgba(52, 211, 153, 0.15);
+      border-color: var(--success);
+      color: var(--success);
+    }
+    .timeline-item.active .timeline-badge {
+      background: rgba(129, 140, 248, 0.15);
+      border-color: var(--primary);
+      color: var(--primary);
+      box-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
+      animation: pulse-border 1.5s infinite;
+    }
+    .timeline-item.suspended .timeline-badge {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: #f59e0b;
+      color: #f59e0b;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+    }
+    .timeline-content {
+      flex: 1;
+    }
+    .timeline-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: color 0.3s ease;
+    }
+    .timeline-item.active .timeline-title {
+      color: var(--text-main);
+    }
+    .timeline-item.completed .timeline-title {
+      color: var(--success);
+    }
+    .timeline-item.suspended .timeline-title {
+      color: #f59e0b;
+    }
+    .timeline-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.1rem;
+    }
+    
+    .card.interrupted-attention {
+      border-color: rgba(245, 158, 11, 0.4);
+      box-shadow: 0 0 25px rgba(245, 158, 11, 0.15);
+    }
+    .card.completed-celebration {
+      border-color: rgba(52, 211, 153, 0.4);
+      box-shadow: 0 0 25px rgba(52, 211, 153, 0.15);
+    }
+
+    @keyframes pulse-border {
+      0% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.4); }
+      70% { box-shadow: 0 0 0 6px rgba(129, 140, 248, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0); }
+    }
   </style>
 </head>
 <body>
@@ -529,13 +628,31 @@
       </div>
     </div>
 
-    <h2 class="section-title">Pending Administrator Interventions</h2>
+    <h2 class="section-title" id="pipeline-title">Real-Time Analysis Pipeline</h2>
     
-    <div class="dashboard-grid" id="dashboard-grid">
-      <!-- Loading placeholder -->
-      <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
-        <div class="spinner" style="width: 32px; height: 32px; border-width: 3px; color: var(--primary);"></div>
-        <p style="margin-top: 1rem; color: var(--text-muted);">Scanning agent sessions...</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
+      <!-- Left Card: Workflow Progress -->
+      <div class="card" id="progress-card">
+        <div class="card-header">
+          <span class="session-id" id="progress-session-id">Session: Idle</span>
+          <span class="interrupt-tag" style="background: rgba(129, 140, 248, 0.15); border-color: rgba(129, 140, 248, 0.3); color: var(--primary);">Progress</span>
+        </div>
+        <div class="card-body" id="progress-card-body" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 200px; text-align: center;">
+          <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">⏳</div>
+          <p style="color: var(--text-muted); font-size: 0.95rem;">Enter a course sales page URL above and click "Start Analysis" to track the workflow nodes in real-time.</p>
+        </div>
+      </div>
+
+      <!-- Right Card: Intervention Waiting Room -->
+      <div class="card" id="intervention-card">
+        <div class="card-header">
+          <span class="session-id" id="intervention-session-id">Session: Idle</span>
+          <span class="interrupt-tag">Intervention</span>
+        </div>
+        <div class="card-body" id="intervention-card-body" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 200px; text-align: center;">
+          <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">💬</div>
+          <p style="color: var(--text-muted); font-size: 0.95rem;">Waiting for workflow execution. If the agent gets interrupted for missing details, input forms will appear here.</p>
+        </div>
       </div>
     </div>
   </main>
@@ -566,7 +683,6 @@
   </div>
 
   <script>
-    const grid = document.getElementById('dashboard-grid');
     const modalOverlay = document.getElementById('modal-overlay');
     const resultModal = document.getElementById('result-modal');
     const closeModalBtn = document.getElementById('close-modal');
@@ -574,10 +690,33 @@
     const btnScan = document.getElementById('btn-scan');
     const scanLoading = document.getElementById('scan-loading');
     
-    // Tracks sessions currently in the resume transition to prevent polling from reverting card state
-    const resumingSessions = new Set();
+    // Core state tracking
+    let activeSessionId = null;
+    let pollingInterval = null;
 
-    // Trigger synchronous analysis from UI
+    const NODE_SEQUENCE = [
+      'START',
+      'fetch_page_node',
+      'parse_course',
+      'triage_course',
+      'creator_verify',
+      'free_alt_score',
+      'verdict_agent',
+      'finalize_verdict'
+    ];
+
+    const NODE_INFO = {
+      'START': { title: 'Pipeline Init', desc: 'Starting agent reasoning engine...' },
+      'fetch_page_node': { title: 'Fetch Page', desc: 'Crawling course sales page...' },
+      'parse_course': { title: 'Parse Course', desc: 'Extracting curriculum details...' },
+      'triage_course': { title: 'Triage Course', desc: 'Analyzing price points...' },
+      'creator_verify': { title: 'Creator Verify', desc: 'Verifying creator identity...' },
+      'free_alt_score': { title: 'Free Alt Search', desc: 'Searching YouTube alternates...' },
+      'verdict_agent': { title: 'Verdict Agent', desc: 'Evaluating quality score...' },
+      'finalize_verdict': { title: 'Finalize Verdict', desc: 'Compiling final report...' }
+    };
+
+    // Trigger URL scan
     btnScan.addEventListener('click', async () => {
       const url = scanUrlInput.value.trim();
       if (!url) {
@@ -587,6 +726,11 @@
       
       btnScan.disabled = true;
       scanLoading.style.display = 'block';
+      
+      // Reset card visual state
+      document.getElementById('progress-card').classList.remove('completed-celebration', 'interrupted-attention');
+      document.getElementById('intervention-card').classList.remove('completed-celebration', 'interrupted-attention');
+      document.getElementById('scan-result-container').style.display = 'none';
       
       try {
         const response = await fetch('/api/scan', {
@@ -601,25 +745,17 @@
         }
         
         const result = await response.json();
+        activeSessionId = result.session_id;
         
-        const resultContainer = document.getElementById('scan-result-container');
-        const resultTitle = document.getElementById('scan-result-title');
-        const resultContent = document.getElementById('scan-result-content');
+        // Update session IDs
+        document.getElementById('progress-session-id').textContent = `Session: ${activeSessionId}`;
+        document.getElementById('intervention-session-id').textContent = `Session: ${activeSessionId}`;
         
-        if (result.status === 'interrupted') {
-          // Hide upper notification container per user request
-          resultContainer.style.display = 'none';
-        } else {
-          resultTitle.textContent = "✓ Due Diligence Completed";
-          resultTitle.style.color = "var(--success)";
-          if (typeof marked !== 'undefined') {
-            resultContent.innerHTML = marked.parse(result.output);
-          } else {
-            resultContent.textContent = result.output;
-          }
-          resultContainer.style.display = 'block';
-        }
-        fetchPending();
+        // Start polling immediately
+        if (pollingInterval) clearInterval(pollingInterval);
+        await pollSessionStatus();
+        pollingInterval = setInterval(pollSessionStatus, 1000);
+        
       } catch (err) {
         alert(`Analysis Error: ${err.message}`);
       } finally {
@@ -629,255 +765,251 @@
       }
     });
 
-    // Fetch and render pending sessions
-    async function fetchPending() {
+    // Poll the status of the active session
+    async function pollSessionStatus() {
+      if (!activeSessionId) return;
+      
       try {
-        const response = await fetch('/api/pending');
-        if (!response.ok) throw new Error('Failed to fetch pending list');
-        const data = await response.json();
-        
-        // Clean up resuming sessions that are no longer in the pending list
-        const activePendingIds = new Set(data.map(s => s.session_id));
-        for (const rId of resumingSessions) {
-          if (!activePendingIds.has(rId)) {
-            resumingSessions.delete(rId);
-          }
+        const response = await fetch(`/api/session/${activeSessionId}/status`);
+        if (!response.ok) {
+          throw new Error('Session status request failed');
         }
         
-        renderPending(data);
+        const data = await response.json();
+        updatePipelineUI(data);
       } catch (err) {
-        console.error(err);
-        grid.innerHTML = `
-          <div class="empty-state" style="border-color: var(--danger);">
-            <div class="empty-icon" style="color: var(--danger);">&times;</div>
-            <div class="empty-text" style="color: var(--danger);">Error scanning agent sessions: ${err.message}</div>
-          </div>
-        `;
+        console.error('Polling error:', err);
       }
     }
 
-    function renderPending(sessions) {
-      if (!sessions || sessions.length === 0) {
-        grid.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">✓</div>
-            <div class="empty-text">All caught up! No pending sessions require your input.</div>
+    // Update the UI with fetched session status
+    function updatePipelineUI(data) {
+      const status = data.status;
+      const current_node = data.current_node || 'START';
+      const is_interrupted = data.is_interrupted || false;
+      const interrupt_id = data.interrupt_id || '';
+      const message = data.message || '';
+      const output = data.output || '';
+      const error = data.error || '';
+      
+      // 1. Update Left Card: Workflow Progress Timeline
+      const activeIdx = NODE_SEQUENCE.indexOf(current_node);
+      const targetIdx = activeIdx !== -1 ? activeIdx : 0;
+      
+      let timelineHtml = '<div class="timeline">';
+      NODE_SEQUENCE.forEach((node, idx) => {
+        let itemClass = '';
+        let badgeContent = idx + 1;
+        
+        if (status === 'completed') {
+          itemClass = 'completed';
+          badgeContent = '✓';
+        } else if (status === 'failed' && idx === targetIdx) {
+          itemClass = 'suspended';
+          badgeContent = '✕';
+        } else if (idx < targetIdx) {
+          itemClass = 'completed';
+          badgeContent = '✓';
+        } else if (idx === targetIdx) {
+          if (status === 'interrupted') {
+            itemClass = 'suspended';
+            badgeContent = '⚠️';
+          } else {
+            itemClass = 'active';
+            badgeContent = `<div class="spinner" style="width: 12px; height: 12px; border-width: 1.5px; color: var(--primary);"></div>`;
+          }
+        } else {
+          itemClass = 'pending';
+        }
+        
+        const info = NODE_INFO[node] || { title: node, desc: '' };
+        timelineHtml += `
+          <div class="timeline-item ${itemClass}">
+            <div class="timeline-badge">${badgeContent}</div>
+            <div class="timeline-content">
+              <div class="timeline-title">${info.title}</div>
+              <div class="timeline-desc">${info.desc}</div>
+            </div>
           </div>
         `;
-        return;
-      }
-
-      grid.innerHTML = '';
-      sessions.forEach(s => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.id = `card-${s.session_id}`;
-
-        // Build Payload description list if available
-        let payloadHtml = '';
-        if (s.course_profile && Object.keys(s.course_profile).length > 0) {
-          payloadHtml += `<div class="payload-section"><div class="payload-title">Course Profile</div>`;
-          const profile = s.course_profile;
-          const courseTitle = profile.course_title || profile.title || 'Untitled Course';
-          payloadHtml += `<div class="payload-item"><span class="payload-label">Title:</span><span class="payload-val">${courseTitle}</span></div>`;
-          if (profile.creator) {
-            payloadHtml += `<div class="payload-item"><span class="payload-label">Creator:</span><span class="payload-val">${profile.creator}</span></div>`;
-          }
-          if (profile.price_usd !== undefined) {
-            payloadHtml += `<div class="payload-item"><span class="payload-label">Price:</span><span class="payload-val">$${profile.price_usd}</span></div>`;
-          }
-          if (profile.sales_page_url) {
-            payloadHtml += `<div class="payload-item"><span class="payload-label">URL:</span><span class="payload-val" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><a href="${profile.sales_page_url}" target="_blank" style="color: var(--primary); text-decoration: none;">View Page</a></span></div>`;
-          }
-          payloadHtml += `</div>`;
-        }
-
-        // Check if interrupt is yes/no (approved) or open input text
-        const isApproval = s.interrupt_id.toLowerCase().includes('approve') || s.interrupt_id.toLowerCase().includes('confirm');
-        const isResuming = resumingSessions.has(s.session_id);
+      });
+      timelineHtml += '</div>';
+      
+      const progressBody = document.getElementById('progress-card-body');
+      progressBody.style.display = 'block';
+      progressBody.style.minHeight = 'unset';
+      progressBody.innerHTML = timelineHtml;
+      
+      // 2. Update Right Card: Intervention Room
+      const interventionCard = document.getElementById('intervention-card');
+      const interventionBody = document.getElementById('intervention-card-body');
+      
+      if (status === 'running') {
+        interventionCard.classList.remove('interrupted-attention', 'completed-celebration');
+        interventionBody.style.display = 'flex';
+        const activeInfo = NODE_INFO[current_node] || { title: current_node, desc: 'Processing...' };
         
+        interventionBody.innerHTML = `
+          <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: 200px;">
+            <div class="spinner" style="width: 48px; height: 48px; border-width: 3px; color: var(--primary); margin-bottom: 1.5rem; animation: spin 1s linear infinite;"></div>
+            <h4 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-main);">Agent is Autonomous</h4>
+            <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 280px;">Currently executing: <strong style="color: var(--primary);">${activeInfo.title}</strong></p>
+          </div>
+        `;
+      } else if (status === 'interrupted') {
+        interventionCard.classList.add('interrupted-attention');
+        interventionCard.classList.remove('completed-celebration');
+        
+        const isApproval = interrupt_id.toLowerCase().includes('approve') || interrupt_id.toLowerCase().includes('confirm');
         let actionFormHtml = '';
-        if (isResuming) {
+        
+        if (isApproval) {
           actionFormHtml = `
-            <div style="background: rgba(129, 140, 248, 0.05); border: 1px solid rgba(129, 140, 248, 0.2); border-radius: 8px; padding: 0.8rem; font-size: 0.85rem; color: var(--text-main); text-align: left;">
-              <strong>已成功恢復執行！</strong><br>
-              Agent 正在背景分析大綱與搜尋 YouTube 替代方案，約需 30 到 60 秒。
-            </div>
-          `;
-        } else if (isApproval) {
-          actionFormHtml = `
-            <div class="btn-row">
-              <button class="btn btn-success" onclick="submitAction('${s.session_id}', '${s.interrupt_id}', true)">
+            <div class="btn-row" style="margin-top: 1.5rem; width: 100%;">
+              <button class="btn btn-success" style="padding: 0.8rem;" onclick="submitIntervention(true, '${interrupt_id}')">
                 Approve
               </button>
-              <button class="btn btn-danger" onclick="submitAction('${s.session_id}', '${s.interrupt_id}', false)">
+              <button class="btn btn-danger" style="padding: 0.8rem;" onclick="submitIntervention(false, '${interrupt_id}')">
                 Reject
               </button>
             </div>
           `;
         } else {
-          // Input field for custom text (e.g. price, creator)
           actionFormHtml = `
-            <div class="input-group">
-              <input type="text" class="text-input" id="input-${s.session_id}" placeholder="Provide missing value..." required>
-              <button class="btn btn-primary" onclick="submitTextInput('${s.session_id}', '${s.interrupt_id}')">
-                Submit
-              </button>
+            <div style="margin-top: 1.5rem; width: 100%;">
+              <div class="input-group">
+                <input type="text" class="text-input" id="intervention-value" placeholder="Enter requested value..." required style="padding: 0.8rem;">
+                <button class="btn btn-primary" onclick="submitInterventionTextInput('${interrupt_id}')" style="padding: 0.8rem 1.5rem;">
+                  Submit
+                </button>
+              </div>
             </div>
           `;
         }
-
-        card.innerHTML = `
-          <div>
-            <div class="card-header">
-              <span class="session-id" title="${s.session_id}">ID: ${s.session_id}</span>
-              <span class="interrupt-tag">${s.interrupt_id}</span>
+        
+        interventionBody.style.display = 'block';
+        interventionBody.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; width: 100%; min-height: 200px;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: #f59e0b; margin-bottom: 1rem; font-weight: 600;">
+              <span style="font-size: 1.2rem;">⚠️</span> Attention Required
             </div>
-            <div class="card-body">
-              <p class="prompt-message">${s.message}</p>
-              <div style="margin-bottom: 1rem; font-size: 0.85rem; background: rgba(255,152,0,0.1); border-left: 3px solid #ff9800; padding: 0.5rem; border-radius: 4px;">
-                <strong>Current Node:</strong> <code style="font-family: monospace; color: #ff9800;">${s.current_node || 'START'}</code>
-              </div>
-              ${payloadHtml}
+            <div class="prompt-message" style="margin-bottom: 1rem; width: 100%; font-size: 0.95rem; border-color: #f59e0b;">
+              ${message}
             </div>
-          </div>
-          <div class="card-actions" id="actions-${s.session_id}">
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              <strong>Interrupt ID:</strong> <code style="font-family: monospace; color: var(--primary);">${interrupt_id}</code>
+            </div>
             ${actionFormHtml}
           </div>
         `;
-        grid.appendChild(card);
-      });
+      } else if (status === 'completed') {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+        
+        interventionCard.classList.remove('interrupted-attention');
+        interventionCard.classList.add('completed-celebration');
+        
+        interventionBody.style.display = 'flex';
+        interventionBody.innerHTML = `
+          <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: 200px;">
+            <div style="font-size: 4rem; color: var(--success); margin-bottom: 1rem; filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.3));">✓</div>
+            <h4 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--success);">Pipeline Completed</h4>
+            <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 280px;">The compliance report has been successfully generated.</p>
+          </div>
+        `;
+        
+        // Show inline output report
+        const resultContainer = document.getElementById('scan-result-container');
+        const resultTitle = document.getElementById('scan-result-title');
+        const resultContent = document.getElementById('scan-result-content');
+        
+        resultTitle.textContent = "✓ Due Diligence Completed";
+        resultTitle.style.color = "var(--success)";
+        if (typeof marked !== 'undefined' && output) {
+          resultContent.innerHTML = marked.parse(output);
+        } else {
+          resultContent.textContent = output || 'No report compiled.';
+        }
+        resultContainer.style.display = 'block';
+        
+        // Automatically open premium modal
+        showModal(activeSessionId, 'Completed', output || 'No report compiled.');
+        
+      } else if (status === 'failed') {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+        
+        interventionCard.classList.remove('interrupted-attention', 'completed-celebration');
+        interventionBody.style.display = 'flex';
+        interventionBody.innerHTML = `
+          <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: 200px;">
+            <div style="font-size: 4rem; color: var(--danger); margin-bottom: 1rem;">✕</div>
+            <h4 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--danger);">Pipeline Failed</h4>
+            <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 280px;">${error || 'An unexpected error occurred.'}</p>
+          </div>
+        `;
+      }
     }
 
-    // Submit user input for text fields
-    async function submitTextInput(sessionId, interruptId) {
-      const inputEl = document.getElementById(`input-${sessionId}`);
+    // Submit text input from intervention card
+    async function submitInterventionTextInput(interruptId) {
+      const inputEl = document.getElementById('intervention-value');
       const val = inputEl.value.trim();
       if (!val) {
-        alert('Please provide a value');
+        alert('Please enter a value');
         return;
       }
-      
-      resumingSessions.add(sessionId);
-      setCardLoading(sessionId);
-      
-      try {
-        const response = await fetch(`/api/action/${sessionId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            interrupt_id: interruptId,
-            value: val
-          })
-        });
-        
-        if (!response.ok) {
-          const detail = await response.json();
-          throw new Error(detail.detail || 'Action failed');
-        }
-        
-        const result = await response.json();
-        const container = document.getElementById(`actions-${sessionId}`);
-        if (container) {
-          container.innerHTML = `
-            <div style="background: rgba(129, 140, 248, 0.05); border: 1px solid rgba(129, 140, 248, 0.2); border-radius: 8px; padding: 0.8rem; font-size: 0.85rem; color: var(--text-main); margin-top: 1rem; text-align: left;">
-              ${typeof marked !== 'undefined' ? marked.parse(result.output) : result.output}
-            </div>
-          `;
-        }
-        fetchPending();
-      } catch (err) {
-        alert(`Error: ${err.message}`);
-        resetCardLoading(sessionId, interruptId, false);
-      }
+      await submitIntervention(val, interruptId);
     }
 
-    // Submit approval (true/false)
-    async function submitAction(sessionId, interruptId, isApproved) {
-      resumingSessions.add(sessionId);
-      setCardLoading(sessionId);
-      
-      try {
-        const response = await fetch(`/api/action/${sessionId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            interrupt_id: interruptId,
-            approved: isApproved
-          })
-        });
-        
-        if (!response.ok) {
-          const detail = await response.json();
-          throw new Error(detail.detail || 'Action failed');
-        }
-        
-        const result = await response.json();
-        const container = document.getElementById(`actions-${sessionId}`);
-        if (container) {
-          container.innerHTML = `
-            <div style="background: rgba(129, 140, 248, 0.05); border: 1px solid rgba(129, 140, 248, 0.2); border-radius: 8px; padding: 0.8rem; font-size: 0.85rem; color: var(--text-main); margin-top: 1rem; text-align: left;">
-              ${typeof marked !== 'undefined' ? marked.parse(result.output) : result.output}
-            </div>
-          `;
-        }
-        fetchPending();
-      } catch (err) {
-        alert(`Error: ${err.message}`);
-        resetCardLoading(sessionId, interruptId, true);
-      }
-    }
-
-    function setCardLoading(sessionId) {
-      const container = document.getElementById(`actions-${sessionId}`);
-      container.innerHTML = `
-        <div style="display: flex; justify-content: center; padding: 0.5rem;">
-          <div class="spinner" style="color: var(--primary);"></div>
-          <span style="margin-left: 0.5rem; font-size: 0.9rem; color: var(--text-muted);">Resuming agent...</span>
+    // Post manual action back to backend
+    async function submitIntervention(value, interruptId) {
+      const interventionBody = document.getElementById('intervention-card-body');
+      interventionBody.innerHTML = `
+        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; min-height: 200px;">
+          <div class="spinner" style="width: 32px; height: 32px; color: var(--primary); margin-bottom: 1rem;"></div>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">Resuming agent pipeline...</p>
         </div>
       `;
-    }
-
-    function resetCardLoading(sessionId, interruptId, isApproval) {
-      const container = document.getElementById(`actions-${sessionId}`);
-      if (isApproval) {
-        container.innerHTML = `
-          <div class="btn-row">
-            <button class="btn btn-success" onclick="submitAction('${sessionId}', '${interruptId}', true)">
-              Approve
-            </button>
-            <button class="btn btn-danger" onclick="submitAction('${sessionId}', '${interruptId}', false)">
-              Reject
-            </button>
-          </div>
-        `;
-      } else {
-        container.innerHTML = `
-          <div class="input-group">
-            <input type="text" class="text-input" id="input-${sessionId}" placeholder="Provide missing value..." required>
-            <button class="btn btn-primary" onclick="submitTextInput('${sessionId}', '${interruptId}')">
-              Submit
-            </button>
-          </div>
-        `;
+      
+      try {
+        const payload = { interrupt_id: interruptId };
+        if (typeof value === 'boolean') {
+          payload.approved = value;
+        } else {
+          payload.value = value;
+        }
+        
+        const response = await fetch(`/api/action/${activeSessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+          const detail = await response.json();
+          throw new Error(detail.detail || 'Action submission failed');
+        }
+        
+        // Immediately fetch state update
+        await pollSessionStatus();
+      } catch (err) {
+        alert(`Intervention submission error: ${err.message}`);
+        await pollSessionStatus();
       }
     }
 
+    // Modal helpers
     function showModal(sessionId, status, text) {
       document.getElementById('result-session-id').textContent = sessionId;
       
       const statusEl = document.getElementById('result-status');
       statusEl.textContent = status;
-      if (status.includes('Approve') || status.includes('Submitted') || status.includes('Completed')) {
-        statusEl.style.color = 'var(--success)';
-      } else {
-        statusEl.style.color = 'var(--danger)';
-      }
+      statusEl.style.color = 'var(--success)';
       
-      // Handle HTML or JSON formatting for output
       const contentEl = document.getElementById('result-content');
-      if (typeof text === 'object') {
-        contentEl.innerHTML = `<pre style="font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; overflow-x: auto;">${JSON.stringify(text, null, 2)}</pre>`;
+      if (typeof marked !== 'undefined') {
+        contentEl.innerHTML = marked.parse(text);
       } else {
         contentEl.textContent = text;
       }
@@ -893,12 +1025,6 @@
 
     closeModalBtn.addEventListener('click', closeModal);
     modalOverlay.addEventListener('click', closeModal);
-
-    // Initial fetch
-    fetchPending();
-
-    // Polling every 5 seconds
-    setInterval(fetchPending, 5000);
   </script>
 </body>
 </html>

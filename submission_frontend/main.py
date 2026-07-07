@@ -1,8 +1,9 @@
 import os
 import logging
 import uuid
+import asyncio
 from typing import Any, Optional
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -52,6 +53,10 @@ class ActionRequest(BaseModel):
 class ScanRequest(BaseModel):
     url: str
 
+# In-memory session state tracking
+# session_id -> { "status", "output", "error", "current_node", "is_interrupted", "interrupt_id", "interrupt_message" }
+active_sessions = {}
+
 def execute_agent_query(engine, message: Any, user_id: str, session_id: str):
     """Executes a query by calling the underlying streaming API directly,
     working around the SDK's dynamic registration ValueError bug.
@@ -75,21 +80,20 @@ def execute_agent_query(engine, message: Any, user_id: str, session_id: str):
                 events.append(parsed)
     return events
 
-@app.get("/", response_class=HTMLResponse)
-async def get_index(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html", context={})
-
-@app.post("/api/scan")
-async def post_scan(req: ScanRequest):
-    if not AGENT_RUNTIME_ID:
-        raise HTTPException(status_code=500, detail="AGENT_RUNTIME_ID environment variable not set")
+# ---------------------------------------------------------------------------
+# Background Agent Runners (Real Vertex AI)
+# ---------------------------------------------------------------------------
+async def run_real_agent_workflow(session_id: str, url: str):
+    active_sessions[session_id] = {
+        "status": "running",
+        "output": None,
+        "error": None,
+        "current_node": "START",
+        "is_interrupted": False,
+        "interrupt_id": "",
+        "interrupt_message": ""
+    }
     try:
-        session_id = f"session-{uuid.uuid4().hex[:8]}"
-        engine = reasoning_engines.ReasoningEngine(AGENT_RUNTIME_ID)
-        
-        logger.info(f"Starting scan for URL: {req.url} in session {session_id}")
-        
-        # Pre-create the session on Google Cloud to prevent SessionNotFoundError on custom workflow runners
         if session_service:
             try:
                 await session_service.create_session(
@@ -97,25 +101,25 @@ async def post_scan(req: ScanRequest):
                     user_id="default-user",
                     session_id=session_id
                 )
-                logger.info(f"Pre-created session {session_id} on Vertex AI successfully.")
+                logger.info(f"Pre-created session {session_id} on Vertex AI.")
             except Exception as s_err:
                 logger.error(f"Failed to pre-create session {session_id}: {s_err}")
 
-        # Trigger query using our custom helper
-        events = execute_agent_query(
-            engine=engine,
-            message=req.url,
-            user_id="default-user",
-            session_id=session_id
+        engine = reasoning_engines.ReasoningEngine(AGENT_RUNTIME_ID)
+        loop = asyncio.get_running_loop()
+        events = await loop.run_in_executor(
+            None,
+            execute_agent_query,
+            engine,
+            url,
+            "default-user",
+            session_id
         )
         
-        logger.info(f"Completed execute_agent_query with {len(events)} events.")
-        
-        # Check if the session is currently suspended / interrupted
         is_interrupted = False
-        interrupt_message = ""
         interrupt_id = ""
-
+        interrupt_message = ""
+        
         if session_service:
             try:
                 session = await session_service.get_session(
@@ -141,16 +145,16 @@ async def post_scan(req: ScanRequest):
                             break
             except Exception as s_err:
                 logger.error(f"Error checking session status: {s_err}")
-                
+
         if is_interrupted:
-            return {
+            active_sessions[session_id].update({
                 "status": "interrupted",
-                "session_id": session_id,
+                "is_interrupted": True,
                 "interrupt_id": interrupt_id,
-                "message": interrupt_message
-            }
-            
-        # Type-safe Event Filtering (Option C) - Extract final YDNT Report
+                "interrupt_message": interrupt_message
+            })
+            return
+
         output_text = None
         for event in reversed(events):
             if "content" in event and event["content"] and "parts" in event["content"]:
@@ -173,46 +177,200 @@ async def post_scan(req: ScanRequest):
 
         if not output_text:
             output_text = (
-                "**已成功啟動盡職調查！**\n\n"  # noqa: RUF001
-                "Agent 正在背景抓取銷售頁與驗證創作者。若需要您手動確認價格或創作者資訊，系統會自動列在「待處理事項」中。"  # noqa: RUF001
+                "**已成功啟動盡職調查！**\n\n"
+                "Agent 正在背景抓取銷售頁與驗證創作者。"
             )
 
-        return {"status": "completed", "session_id": session_id, "output": output_text}
+        active_sessions[session_id].update({
+            "status": "completed",
+            "output": output_text
+        })
     except Exception as e:
-        logger.exception("Error during scan execution")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception(f"Error in background workflow for session {session_id}")
+        active_sessions[session_id].update({
+            "status": "failed",
+            "error": str(e)
+        })
+
+async def resume_real_agent_workflow(session_id: str, message: Any):
+    active_sessions[session_id].update({
+        "status": "running",
+        "is_interrupted": False,
+        "interrupt_id": "",
+        "interrupt_message": ""
+    })
+    try:
+        engine = reasoning_engines.ReasoningEngine(AGENT_RUNTIME_ID)
+        loop = asyncio.get_running_loop()
+        events = await loop.run_in_executor(
+            None,
+            execute_agent_query,
+            engine,
+            message,
+            "default-user",
+            session_id
+        )
+        
+        is_interrupted = False
+        interrupt_id = ""
+        interrupt_message = ""
+        
+        if session_service:
+            try:
+                session = await session_service.get_session(
+                    app_name="app",
+                    user_id="default-user",
+                    session_id=session_id
+                )
+                if session and session.events:
+                    calls = {}
+                    responses = set()
+                    for event in session.events:
+                        if event.content and event.content.parts:
+                            for part in event.content.parts:
+                                if part.function_call and part.function_call.name == "adk_request_input":
+                                    calls[part.function_call.id] = part.function_call.args
+                                elif part.function_response and part.function_response.name == "adk_request_input":
+                                    responses.add(part.function_response.id)
+                    for i_id, args in calls.items():
+                        if i_id not in responses:
+                            is_interrupted = True
+                            interrupt_id = i_id
+                            interrupt_message = args.get("message", "Input required")
+                            break
+            except Exception as s_err:
+                logger.error(f"Error checking session status: {s_err}")
+
+        if is_interrupted:
+            active_sessions[session_id].update({
+                "status": "interrupted",
+                "is_interrupted": True,
+                "interrupt_id": interrupt_id,
+                "interrupt_message": interrupt_message
+            })
+            return
+
+        output_text = None
+        for event in reversed(events):
+            if "content" in event and event["content"] and "parts" in event["content"]:
+                parts = event["content"]["parts"]
+                if parts and isinstance(parts, list) and "text" in parts[0]:
+                    text = parts[0]["text"]
+                    if "# YDNT Due Diligence Report" in text:
+                        output_text = text
+                        break
+
+        if not output_text:
+            for event in reversed(events):
+                if "output" in event and isinstance(event["output"], dict) and "recommendation" in event["output"]:
+                    v = event["output"]
+                    rec = v.get("recommendation", "Unknown").upper()
+                    conf = v.get("confidence", "Unknown").upper()
+                    concl = v.get("conclusion", "No conclusion provided.")
+                    output_text = f"# YDNT Due Diligence Report\n\n### **Recommendation**: `{rec}` (Confidence: {conf})\n\n#### **Conclusion**\n{concl}"
+                    break
+
+        if not output_text:
+            output_text = (
+                "**已成功恢復執行！**\n\n"
+                "Agent 正在背景分析大綱與搜尋 YouTube 替代方案。"
+            )
+
+        active_sessions[session_id].update({
+            "status": "completed",
+            "output": output_text
+        })
+    except Exception as e:
+        logger.exception(f"Error in background workflow resume for session {session_id}")
+        active_sessions[session_id].update({
+            "status": "failed",
+            "error": str(e)
+        })
+
+# ---------------------------------------------------------------------------
+# Background Agent Runners (Simulated Local Mode)
+# ---------------------------------------------------------------------------
+async def simulate_mock_agent_workflow(session_id: str):
+    active_sessions[session_id] = {
+        "status": "running",
+        "output": None,
+        "error": None,
+        "current_node": "START",
+        "is_interrupted": False,
+        "interrupt_id": "",
+        "interrupt_message": ""
+    }
+    
+    # Simulate fetch_page_node
+    await asyncio.sleep(2)
+    active_sessions[session_id]["current_node"] = "fetch_page_node"
+    
+    # Simulate parse_course
+    await asyncio.sleep(2)
+    active_sessions[session_id]["current_node"] = "parse_course"
+    
+    # Simulate triage_course -> suspend on price check!
+    await asyncio.sleep(2)
+    active_sessions[session_id].update({
+        "status": "interrupted",
+        "current_node": "triage_course",
+        "is_interrupted": True,
+        "interrupt_id": "price_verify_input",
+        "interrupt_message": "The sales page lists multiple price points. Please enter the correct price in USD for 'The Skool Games'."
+    })
+
+async def resume_mock_agent_workflow(session_id: str, value: str):
+    active_sessions[session_id].update({
+        "status": "running",
+        "is_interrupted": False,
+        "interrupt_id": "",
+        "interrupt_message": ""
+    })
+    
+    # Simulate creator_verify
+    await asyncio.sleep(2)
+    active_sessions[session_id]["current_node"] = "creator_verify"
+    
+    # Simulate free_alt_score
+    await asyncio.sleep(2)
+    active_sessions[session_id]["current_node"] = "free_alt_score"
+    
+    # Simulate verdict_agent
+    await asyncio.sleep(2)
+    active_sessions[session_id]["current_node"] = "verdict_agent"
+    
+    # Simulate completed report
+    await asyncio.sleep(1)
+    active_sessions[session_id].update({
+        "status": "completed",
+        "current_node": "finalize_verdict",
+        "output": f"# YDNT Due Diligence Report\n\n### **Recommendation**: `APPROVED` (Confidence: HIGH)\n\n#### **Conclusion**\nSuccessfully resumed and verified 'The Skool Games' at ${value} USD!"
+    })
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+@app.get("/", response_class=HTMLResponse)
+async def get_index(request: Request):
+    return templates.TemplateResponse(request=request, name="index.html", context={})
+
+@app.post("/api/scan")
+async def post_scan(req: ScanRequest, background_tasks: BackgroundTasks):
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    if os.getenv("LOCAL_TEST") == "1":
+        background_tasks.add_task(simulate_mock_agent_workflow, session_id)
+    else:
+        if not AGENT_RUNTIME_ID:
+            raise HTTPException(status_code=500, detail="AGENT_RUNTIME_ID environment variable not set")
+        background_tasks.add_task(run_real_agent_workflow, session_id, req.url)
+    return {"status": "running", "session_id": session_id}
 
 @app.get("/api/pending")
 async def get_pending():
+    # Return empty list in local dev to ensure TWO BLANK CARDS initially!
     if os.getenv("LOCAL_TEST") == "1":
-        return [
-            {
-                "session_id": "session-skool-games-01",
-                "interrupt_id": "creator_verify_approve",
-                "message": "Please confirm if 'Sam Ovens' is the authentic creator of 'The Skool Games' course.",
-                "course_profile": {
-                    "title": "The Skool Games",
-                    "course_title": "The Skool Games",
-                    "creator": "Sam Ovens",
-                    "price_usd": 99.0,
-                    "sales_page_url": "https://www.skool.com/games"
-                },
-                "current_node": "creator_verify"
-            },
-            {
-                "session_id": "session-ai-agency-02",
-                "interrupt_id": "price_verify_input",
-                "message": "The sales page lists multiple price points. Please enter the correct price in USD for 'AI Automation Agency'.",
-                "course_profile": {
-                    "title": "AI Automation Agency",
-                    "course_title": "AI Automation Agency",
-                    "creator": "Iman Gadzhi",
-                    "price_usd": 5000.0,
-                    "sales_page_url": "https://www.educate.io/aaa"
-                },
-                "current_node": "triage_course"
-            }
-        ]
+        return []
+        
     if not session_service:
         return []
     try:
@@ -229,7 +387,6 @@ async def get_pending():
                 if not session or not session.events:
                     continue
                 
-                # Scan history for unresolved adk_request_input calls
                 calls = {}
                 responses = set()
                 
@@ -241,12 +398,9 @@ async def get_pending():
                             elif part.function_response and part.function_response.name == "adk_request_input":
                                 responses.add(part.function_response.id)
                 
-                # Check for unresolved interrupts
                 for interrupt_id, args in calls.items():
                     if interrupt_id not in responses:
                         course_profile = session.state.get("course_profile", {})
-                        
-                        # Get the last non-empty node_name
                         current_node = "START"
                         for event in session.events:
                             if event.node_name:
@@ -268,16 +422,48 @@ async def get_pending():
         logger.exception("Error listing pending approvals")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/session/{session_id}/status")
+async def get_session_status(session_id: str):
+    state = active_sessions.get(session_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    current_node = state.get("current_node", "START")
+    if os.getenv("LOCAL_TEST") != "1" and session_service:
+        try:
+            session = await session_service.get_session(
+                app_name="app",
+                user_id="default-user",
+                session_id=session_id
+            )
+            if session and session.events:
+                for event in session.events:
+                    if event.node_name:
+                        current_node = event.node_name
+                state["current_node"] = current_node
+        except Exception as e:
+            logger.error(f"Error checking real-time session progress: {e}")
+            
+    return {
+        "status": state["status"],
+        "current_node": current_node,
+        "is_interrupted": state.get("is_interrupted", False),
+        "interrupt_id": state.get("interrupt_id", ""),
+        "message": state.get("interrupt_message", ""),
+        "output": state.get("output"),
+        "error": state.get("error")
+    }
+
 @app.post("/api/action/{session_id}")
-async def post_action(session_id: str, req: ActionRequest):
+async def post_action(session_id: str, req: ActionRequest, background_tasks: BackgroundTasks):
     if os.getenv("LOCAL_TEST") == "1":
-        return {"status": "success", "output": "# YDNT Due Diligence Report\n\n### **Recommendation**: `APPROVED` (Confidence: HIGH)\n\n#### **Conclusion**\nSuccessfully resumed and verified mock session!"}
+        val = req.value or str(req.approved)
+        background_tasks.add_task(resume_mock_agent_workflow, session_id, val)
+        return {"status": "resuming"}
+        
     if not AGENT_RUNTIME_ID:
         raise HTTPException(status_code=500, detail="AGENT_RUNTIME_ID environment variable not set")
     try:
-        engine = reasoning_engines.ReasoningEngine(AGENT_RUNTIME_ID)
-        
-        # Build the response payload
         res_payload = {}
         if req.value is not None:
             res_payload = {"value": req.value, "result": req.value}
@@ -296,47 +482,9 @@ async def post_action(session_id: str, req: ActionRequest):
                 }
             ]
         }
-        
-        logger.info(f"Resuming session {session_id} with payload: {message}")
-        
-        # Trigger query using our custom helper
-        events = execute_agent_query(
-            engine=engine,
-            message=message,
-            user_id="default-user",
-            session_id=session_id
-        )
-        
-        logger.info(f"Resume execute_agent_query finished with {len(events)} events.")
-        
-        # Type-safe Event Filtering (Option C) - Extract final YDNT Report
-        output_text = None
-        for event in reversed(events):
-            if "content" in event and event["content"] and "parts" in event["content"]:
-                parts = event["content"]["parts"]
-                if parts and isinstance(parts, list) and "text" in parts[0]:
-                    text = parts[0]["text"]
-                    if "# YDNT Due Diligence Report" in text:
-                        output_text = text
-                        break
-
-        if not output_text:
-            for event in reversed(events):
-                if "output" in event and isinstance(event["output"], dict) and "recommendation" in event["output"]:
-                    v = event["output"]
-                    rec = v.get("recommendation", "Unknown").upper()
-                    conf = v.get("confidence", "Unknown").upper()
-                    concl = v.get("conclusion", "No conclusion provided.")
-                    output_text = f"# YDNT Due Diligence Report\n\n### **Recommendation**: `{rec}` (Confidence: {conf})\n\n#### **Conclusion**\n{concl}"
-                    break
-
-        if not output_text:
-            output_text = (
-                "**已成功恢復執行！**\n\n"  # noqa: RUF001
-                "Agent 正在背景分析大綱與搜尋 YouTube 替代方案，約需 30 到 60 秒。分析完成後，您重新整理首頁即可點擊卡片查看完整報告。"  # noqa: RUF001
-            )
-
-        return {"status": "success", "output": output_text}
+        background_tasks.add_task(resume_real_agent_workflow, session_id, message)
+        return {"status": "resuming"}
     except Exception as e:
         logger.exception(f"Error resuming session {session_id}")
         raise HTTPException(status_code=500, detail=str(e))
+
