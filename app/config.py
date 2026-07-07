@@ -73,7 +73,7 @@ MODEL_JUDGMENT: str = os.getenv("MODEL_JUDGMENT", "gemini-2.5-flash")
 _is_cloud = bool(
     os.getenv("K_SERVICE") or os.getenv("AIP_MODE") or os.getenv("GOOGLE_CLOUD_PROJECT")
 )
-_default_mock = "0" if _is_cloud else "1"
+_default_mock = "1"
 USE_MOCK: bool = os.getenv("USE_MOCK", _default_mock) == "1"
 
 # Cache directory for mock data
