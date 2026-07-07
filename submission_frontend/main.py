@@ -187,28 +187,30 @@ async def get_pending():
     if os.getenv("LOCAL_TEST") == "1":
         return [
             {
-                "session_id": "test-session-123456",
+                "session_id": "session-skool-games-01",
                 "interrupt_id": "creator_verify_approve",
-                "message": "Please confirm if the course creator is indeed 'John Doe'.",
+                "message": "Please confirm if 'Sam Ovens' is the authentic creator of 'The Skool Games' course.",
                 "course_profile": {
-                    "course_title": "Advanced Python Programming",
-                    "creator": "John Doe",
-                    "price_usd": 99.99,
-                    "sales_page_url": "https://example.com/python-course"
+                    "title": "The Skool Games",
+                    "course_title": "The Skool Games",
+                    "creator": "Sam Ovens",
+                    "price_usd": 99.0,
+                    "sales_page_url": "https://www.skool.com/games"
                 },
                 "current_node": "creator_verify"
             },
             {
-                "session_id": "test-session-789012",
+                "session_id": "session-ai-agency-02",
                 "interrupt_id": "price_verify_input",
-                "message": "The sales page lists multiple price points. Please enter the correct price in USD.",
+                "message": "The sales page lists multiple price points. Please enter the correct price in USD for 'AI Automation Agency'.",
                 "course_profile": {
-                    "course_title": "Super SEO Hacks",
-                    "creator": "Jane Smith",
-                    "price_usd": 0.0,
-                    "sales_page_url": "https://example.com/seo-hacks"
+                    "title": "AI Automation Agency",
+                    "course_title": "AI Automation Agency",
+                    "creator": "Iman Gadzhi",
+                    "price_usd": 5000.0,
+                    "sales_page_url": "https://www.educate.io/aaa"
                 },
-                "current_node": "price_verify"
+                "current_node": "triage_course"
             }
         ]
     if not session_service:

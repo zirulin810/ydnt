@@ -678,9 +678,8 @@
         if (s.course_profile && Object.keys(s.course_profile).length > 0) {
           payloadHtml += `<div class="payload-section"><div class="payload-title">Course Profile</div>`;
           const profile = s.course_profile;
-          if (profile.course_title) {
-            payloadHtml += `<div class="payload-item"><span class="payload-label">Title:</span><span class="payload-val">${profile.course_title}</span></div>`;
-          }
+          const courseTitle = profile.course_title || profile.title || 'Untitled Course';
+          payloadHtml += `<div class="payload-item"><span class="payload-label">Title:</span><span class="payload-val">${courseTitle}</span></div>`;
           if (profile.creator) {
             payloadHtml += `<div class="payload-item"><span class="payload-label">Creator:</span><span class="payload-val">${profile.creator}</span></div>`;
           }
