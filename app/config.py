@@ -51,6 +51,12 @@ def configure_genai_backend() -> None:
 
 configure_genai_backend()
 
+
+def use_vertexai() -> bool:
+    """Whether GenAI clients should use Vertex AI (set by configure_genai_backend)."""
+    return os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("true", "1")
+
+
 GOOGLE_CLOUD_PROJECT: str | None = os.getenv("GOOGLE_CLOUD_PROJECT")
 GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", GOOGLE_CLOUD_LOCATION)
 

@@ -20,7 +20,6 @@ functions to avoid process startup overhead and connection timeouts on Windows.
 
 from __future__ import annotations
 
-import os
 from functools import cached_property
 
 from google.adk.agents import LlmAgent
@@ -31,7 +30,7 @@ from google.adk.tools.google_search_agent_tool import (
 )
 from google.genai import Client, types
 
-from app.config import GEMINI_LOCATION, MODEL_JUDGMENT, MODEL_ROUTING
+from app.config import GEMINI_LOCATION, MODEL_JUDGMENT, MODEL_ROUTING, use_vertexai
 from app.mcp_server import (
     get_channel_stats,
     search_youtube,
@@ -54,7 +53,7 @@ class _Gemini(Gemini):
         http_options = types.HttpOptions(
             headers=self._tracking_headers(), retry_options=self.retry_options
         )
-        if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("true", "1"):
+        if use_vertexai():
             return Client(
                 vertexai=True, location=GEMINI_LOCATION, http_options=http_options
             )

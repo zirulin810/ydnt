@@ -45,7 +45,8 @@ A DAG alternates **deterministic nodes** and **LLM agents**:
 3. **Triage** — reject non-course pages; if price or creator is missing, pause and ask the user via a resumable human-in-the-loop prompt rather than guessing.
 4. **Verify the creator** with Google Search grounding, constrained to a few queries and real source URLs only — no hallucinated citations.
 5. **Find free alternatives** on YouTube, estimating syllabus coverage and flagging content farms conservatively.
-6. **Score** deterministically, then **deliver** an English-only verdict whose links are injected from verified tool data.
+6. **Check the best alternative's actual content**: Gemini watches a one-minute sample of the top video straight from its YouTube URL, falling back to its transcript, then to the title-based estimate. The report says which basis each coverage figure came from.
+7. **Score** deterministically, then **deliver** an English-only verdict whose links are injected from verified tool data.
 
 ---
 
