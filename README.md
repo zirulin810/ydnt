@@ -123,10 +123,11 @@ ydnt/
 │  ├─ main.py                     # FastAPI app calling the Agent Runtime
 │  └─ templates/index.html        # Progress timeline, HITL intervention card, report
 ├─ deploy/DEPLOY.md               # Deployment guide
+├─ sample-pages/                  # Fictional sales pages used by the eval dataset
 ├─ tests/
 │  ├─ unit/                       # pytest, network calls stubbed
 │  ├─ integration/                # Agent Runtime app wrapper
-│  └─ eval/                       # agents-cli eval config and dataset
+│  └─ eval/                       # agents-cli eval config and dataset (real URLs)
 ├─ .agents/
 │  ├─ AGENTS.md                   # Persistent rules (security, dependency, Conventional Commit)
 │  ├─ hooks.json                  # PreToolUse interception configurations
