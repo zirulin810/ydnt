@@ -124,6 +124,35 @@ def prepare_free_alt_input(ctx: Context, node_input: Any) -> Event:
 
 
 @node
+def verify_coverage(ctx: Context, node_input: Any) -> Event:
+    """Re-checks the top free alternative's coverage against its actual content.
+
+    Design: Tries a one-minute video sample, then the transcript, and keeps the
+    title/description estimate only when both fail. See app/coverage.py.
+    """
+    from app.coverage import check_top_alternative
+
+    def to_dict(obj: Any) -> dict:
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump()
+        if isinstance(obj, dict):
+            return obj
+        return {}
+
+    profile = to_dict(ctx.state.get("course_profile", {}))
+    free_alt = to_dict(ctx.state.get("free_alternatives", {}))
+    free_alt["items"] = [to_dict(item) for item in free_alt.get("items", [])]
+
+    updated, record = check_top_alternative(profile, free_alt)
+    ctx.state["free_alternatives"] = updated
+    ctx.state["coverage_check"] = record
+    return Event(
+        output=record,
+        state={"free_alternatives": updated, "coverage_check": record},
+    )
+
+
+@node
 def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
     """Computes the 6+1 axes rubric scores deterministically from gathered data.
 
@@ -191,6 +220,7 @@ def rubric_scoring_node(ctx: Context, node_input: Any) -> Event:
         "red_flags": red_flags,
         "green_flags": green_flags,
         "best_coverage_pct": best_coverage_pct,
+        "coverage_basis": ctx.state.get("coverage_check", {}).get("basis", "metadata"),
         "high_extraction_cost": high_extraction_cost,
         "price_score": price_score,
         "content_score": content_score,

@@ -36,6 +36,7 @@ from app.nodes import (
     prepare_free_alt_input,
     rubric_scoring_node,
     triage_course,
+    verify_coverage,
 )
 
 # ---------------------------------------------------------------------------
@@ -60,7 +61,8 @@ root_agent = Workflow(
         Edge(from_node=triage_course, to_node=creator_verify, route="ok"),
         Edge(from_node=creator_verify, to_node=prepare_free_alt_input),
         Edge(from_node=prepare_free_alt_input, to_node=free_alt_score),
-        Edge(from_node=free_alt_score, to_node=rubric_scoring_node),
+        Edge(from_node=free_alt_score, to_node=verify_coverage),
+        Edge(from_node=verify_coverage, to_node=rubric_scoring_node),
         Edge(from_node=rubric_scoring_node, to_node=verdict_agent),
         Edge(from_node=verdict_agent, to_node=finalize_verdict),
     ],

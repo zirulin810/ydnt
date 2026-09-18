@@ -108,6 +108,18 @@ class FreeAlternatives(BaseModel):
     )
 
 
+class CoverageAssessment(BaseModel):
+    """Syllabus coverage judged from a video's actual content."""
+
+    coverage_pct: int = Field(
+        description="Estimated percentage (0-100) of the course syllabus the full video covers."
+    )
+    covered_topics: list[str] = Field(
+        default_factory=list,
+        description="Syllabus topics the sampled content actually addresses.",
+    )
+
+
 class Verdict(BaseModel):
     """The final verdict and due diligence report for the course."""
 

@@ -31,6 +31,12 @@ from app.config import JINA_API_KEY, YOUTUBE_API_KEY
 mcp = FastMCP("ydnt-tools")
 
 
+def _youtube_headers() -> dict[str, str]:
+    # Send the key as a header, not a query parameter, so it never appears in
+    # request URLs that httpx logs at INFO level or embeds in error messages.
+    return {"X-Goog-Api-Key": YOUTUBE_API_KEY or ""}
+
+
 MAX_TRANSCRIPT_CHARS: int = 3000
 
 
@@ -143,12 +149,11 @@ def _search_youtube(query: str) -> list[dict[str, Any]]:
     params = {
         "part": "snippet",
         "q": query,
-        "key": YOUTUBE_API_KEY,
         "maxResults": 5,
         "type": "video",
     }
     try:
-        resp = httpx.get(url, params=params, timeout=4.0)
+        resp = httpx.get(url, params=params, headers=_youtube_headers(), timeout=4.0)
         resp.raise_for_status()
         data = resp.json()
         items = data.get("items", [])
@@ -184,6 +189,32 @@ def _search_youtube(query: str) -> list[dict[str, Any]]:
         ) from e
     except Exception as e:
         raise RuntimeError(f"YouTube search failed for query '{query}': {e}") from e
+
+
+def get_video_duration_seconds(video_id: str) -> int | None:
+    """Returns a YouTube video's length in seconds, or None if unavailable."""
+    if not YOUTUBE_API_KEY:
+        return None
+    try:
+        resp = httpx.get(
+            "https://www.googleapis.com/youtube/v3/videos",
+            params={"part": "contentDetails", "id": video_id},
+            headers=_youtube_headers(),
+            timeout=4.0,
+        )
+        resp.raise_for_status()
+        items = resp.json().get("items", [])
+        duration = items[0]["contentDetails"]["duration"] if items else ""
+    except Exception:
+        # httpx errors embed the request URL, which carries the API key; never surface it.
+        return None
+    match = re.fullmatch(
+        r"P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", duration or ""
+    )
+    if not match or not any(match.groups()):
+        return None
+    days, hours, minutes, seconds = (int(g or 0) for g in match.groups())
+    return ((days * 24 + hours) * 60 + minutes) * 60 + seconds
 
 
 def _get_youtube_transcript(video_id: str) -> str:
@@ -229,10 +260,9 @@ def _get_channel_stats(channel_id: str) -> dict[str, Any]:
     params = {
         "part": "statistics,snippet",
         "id": channel_id,
-        "key": YOUTUBE_API_KEY,
     }
     try:
-        resp = httpx.get(url, params=params, timeout=4.0)
+        resp = httpx.get(url, params=params, headers=_youtube_headers(), timeout=4.0)
         resp.raise_for_status()
         data = resp.json()
         items = data.get("items", [])

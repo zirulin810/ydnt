@@ -166,7 +166,13 @@ def format_verdict_to_markdown(v: dict) -> str:
 
             lines.append(f"### **{idx}. {title}**")
             lines.append(f"- **YouTube Link**: [{url}]({url})")
-            lines.append(f"- **Knowledge Coverage**: `{coverage}%`")
+            basis_map = {
+                "video": "checked against a 1-minute video sample",
+                "transcript": "checked against the transcript",
+                "metadata": "estimated from title and description",
+            }
+            basis = basis_map.get(alt.get("coverage_basis"), basis_map["metadata"])
+            lines.append(f"- **Knowledge Coverage**: `{coverage}%` ({basis})")
             lines.append(f"- **Extraction Cost**: `{cost}`")
             lines.append(f"- **Content Farm Check**: `{flagged_str}`\n")
 
