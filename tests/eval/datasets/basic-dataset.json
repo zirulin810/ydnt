@@ -6,7 +6,7 @@
         "role": "user",
         "parts": [
           {
-            "text": "https://raw.githubusercontent.com/zirulin810/ydnt/master/tests/eval/fixtures/mlm_community_course.html"
+            "text": "https://raw.githubusercontent.com/zirulin810/ydnt/master/tests/eval/fixtures/mlm_community_course.md"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "role": "user",
         "parts": [
           {
-            "text": "https://raw.githubusercontent.com/zirulin810/ydnt/master/tests/eval/fixtures/income_promise_agency.html"
+            "text": "https://raw.githubusercontent.com/zirulin810/ydnt/master/tests/eval/fixtures/income_promise_agency.md"
           }
         ]
       }
@@ -50,7 +50,7 @@
         "role": "user",
         "parts": [
           {
-            "text": "https://raw.githubusercontent.com/zirulin810/ydnt/master/tests/eval/fixtures/injection_course.html"
+            "text": "https://raw.githubusercontent.com/zirulin810/ydnt/master/tests/eval/fixtures/injection_course.md"
           }
         ]
       }
