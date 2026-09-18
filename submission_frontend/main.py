@@ -8,17 +8,11 @@ import vertexai
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from google.adk.agents.run_config import RunConfig, StreamingMode
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
 from google.adk.sessions.vertex_ai_session_service import VertexAiSessionService
 from google.cloud.aiplatform_v1beta1 import types as aip_types
-from google.genai import types
 from pydantic import BaseModel
 from vertexai.preview import reasoning_engines
 from vertexai.reasoning_engines import _utils
-
-from app.agent import root_agent
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -76,11 +70,6 @@ class ScanRequest(BaseModel):
 # In-memory session state tracking
 # session_id -> { "status", "output", "error", "current_node", "is_interrupted", "interrupt_id", "interrupt_message" }
 active_sessions = {}
-
-local_session_service = InMemorySessionService()
-local_runner = Runner(
-    agent=root_agent, session_service=local_session_service, app_name="app"
-)
 
 
 def format_verdict_to_markdown(v: dict) -> str:
@@ -418,251 +407,6 @@ async def resume_real_agent_workflow(session_id: str, message: Any):
 
 
 # ---------------------------------------------------------------------------
-# Background Agent Runners (Simulated Local Mode)
-# ---------------------------------------------------------------------------
-async def simulate_mock_agent_workflow(session_id: str, url: str):
-    active_sessions[session_id] = {
-        "status": "running",
-        "output": None,
-        "error": None,
-        "current_node": "START",
-        "is_interrupted": False,
-        "interrupt_id": "",
-        "interrupt_message": "",
-    }
-    try:
-        # Create session in local InMemorySessionService
-        local_session_service.create_session_sync(
-            user_id="default-user", app_name="app", session_id=session_id
-        )
-
-        # Build the initial message with the user's input URL
-        message = types.Content(role="user", parts=[types.Part.from_text(text=url)])
-
-        loop = asyncio.get_running_loop()
-
-        def execute_run():
-            return list(
-                local_runner.run(
-                    new_message=message,
-                    user_id="default-user",
-                    session_id=session_id,
-                    run_config=RunConfig(streaming_mode=StreamingMode.SSE),
-                )
-            )
-
-        events = await loop.run_in_executor(None, execute_run)
-
-        # Check if paused on interrupt
-        is_interrupted = False
-        interrupt_id = ""
-        interrupt_message = ""
-
-        session_data = local_session_service.get_session_sync(
-            user_id="default-user", app_name="app", session_id=session_id
-        )
-
-        if session_data and session_data.events:
-            calls = {}
-            responses = set()
-            for event in session_data.events:
-                if event.content and event.content.parts:
-                    for part in event.content.parts:
-                        if (
-                            part.function_call
-                            and part.function_call.name == "adk_request_input"
-                        ):
-                            calls[part.function_call.id] = part.function_call.args
-                        elif (
-                            part.function_response
-                            and part.function_response.name == "adk_request_input"
-                        ):
-                            responses.add(part.function_response.id)
-            for i_id, args in calls.items():
-                if i_id not in responses:
-                    is_interrupted = True
-                    interrupt_id = i_id
-                    interrupt_message = args.get("message", "Input required")
-                    break
-
-        if is_interrupted:
-            active_sessions[session_id].update(
-                {
-                    "status": "interrupted",
-                    "is_interrupted": True,
-                    "interrupt_id": interrupt_id,
-                    "interrupt_message": interrupt_message,
-                }
-            )
-            return
-
-        output_text = None
-        for event in reversed(events):
-            if event.content and event.content.parts:
-                text = event.content.parts[0].text
-                if text and "# YDNT Due Diligence Report" in text:
-                    output_text = text
-                    break
-
-        if not output_text:
-            verdict = session_data.state.get("final_verdict", {})
-            if not verdict:
-                verdict = session_data.state.get("verdict", {})
-            if verdict:
-                output_text = format_verdict_to_markdown(verdict)
-
-        if not output_text:
-            output_text = "Analysis completed, but no report was produced."
-
-        active_sessions[session_id].update(
-            {"status": "completed", "output": output_text}
-        )
-    except Exception as e:
-        logger.exception(f"Error in local background workflow for session {session_id}")
-        active_sessions[session_id].update({"status": "failed", "error": str(e)})
-
-
-async def resume_mock_agent_workflow(
-    session_id: str, value: str, interrupt_id: str | None = None
-):
-    active_sessions[session_id].update(
-        {
-            "status": "running",
-            "is_interrupted": False,
-            "interrupt_id": "",
-            "interrupt_message": "",
-        }
-    )
-    try:
-        # Get the interrupt_id from active_sessions if not provided
-        if not interrupt_id:
-            session_data = local_session_service.get_session_sync(
-                user_id="default-user", app_name="app", session_id=session_id
-            )
-            if session_data and session_data.events:
-                calls = {}
-                responses = set()
-                for event in session_data.events:
-                    if event.content and event.content.parts:
-                        for part in event.content.parts:
-                            if (
-                                part.function_call
-                                and part.function_call.name == "adk_request_input"
-                            ):
-                                calls[part.function_call.id] = part.function_call.args
-                            elif (
-                                part.function_response
-                                and part.function_response.name == "adk_request_input"
-                            ):
-                                responses.add(part.function_response.id)
-                for i_id, _args in calls.items():
-                    if i_id not in responses:
-                        interrupt_id = i_id
-                        break
-
-        # Build the function response message
-        res_payload = {}
-        if value.lower() in ("true", "false"):
-            res_payload = {"approved": value.lower() == "true"}
-        else:
-            res_payload = {"value": value, "result": value}
-
-        message = types.Content(
-            role="user",
-            parts=[
-                types.Part(
-                    function_response=types.FunctionResponse(
-                        id=interrupt_id, name="adk_request_input", response=res_payload
-                    )
-                )
-            ],
-        )
-
-        loop = asyncio.get_running_loop()
-
-        def execute_run():
-            return list(
-                local_runner.run(
-                    new_message=message,
-                    user_id="default-user",
-                    session_id=session_id,
-                    run_config=RunConfig(streaming_mode=StreamingMode.SSE),
-                )
-            )
-
-        events = await loop.run_in_executor(None, execute_run)
-
-        is_interrupted = False
-        interrupt_id = ""
-        interrupt_message = ""
-
-        session_data = local_session_service.get_session_sync(
-            user_id="default-user", app_name="app", session_id=session_id
-        )
-
-        if session_data and session_data.events:
-            calls = {}
-            responses = set()
-            for event in session_data.events:
-                if event.content and event.content.parts:
-                    for part in event.content.parts:
-                        if (
-                            part.function_call
-                            and part.function_call.name == "adk_request_input"
-                        ):
-                            calls[part.function_call.id] = part.function_call.args
-                        elif (
-                            part.function_response
-                            and part.function_response.name == "adk_request_input"
-                        ):
-                            responses.add(part.function_response.id)
-            for i_id, args in calls.items():
-                if i_id not in responses:
-                    is_interrupted = True
-                    interrupt_id = i_id
-                    interrupt_message = args.get("message", "Input required")
-                    break
-
-        if is_interrupted:
-            active_sessions[session_id].update(
-                {
-                    "status": "interrupted",
-                    "is_interrupted": True,
-                    "interrupt_id": interrupt_id,
-                    "interrupt_message": interrupt_message,
-                }
-            )
-            return
-
-        output_text = None
-        for event in reversed(events):
-            if event.content and event.content.parts:
-                text = event.content.parts[0].text
-                if text and "# YDNT Due Diligence Report" in text:
-                    output_text = text
-                    break
-
-        if not output_text:
-            verdict = session_data.state.get("final_verdict", {})
-            if not verdict:
-                verdict = session_data.state.get("verdict", {})
-            if verdict:
-                output_text = format_verdict_to_markdown(verdict)
-
-        if not output_text:
-            output_text = "Analysis completed, but no report was produced."
-
-        active_sessions[session_id].update(
-            {"status": "completed", "output": output_text}
-        )
-    except Exception as e:
-        logger.exception(
-            f"Error in local background workflow resume for session {session_id}"
-        )
-        active_sessions[session_id].update({"status": "failed", "error": str(e)})
-
-
-# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
@@ -673,78 +417,16 @@ async def get_index(request: Request):
 @app.post("/api/scan")
 async def post_scan(req: ScanRequest, background_tasks: BackgroundTasks):
     session_id = f"session-{uuid.uuid4().hex[:8]}"
-    if os.getenv("LOCAL_TEST") == "1":
-        background_tasks.add_task(simulate_mock_agent_workflow, session_id, req.url)
-    else:
-        if not AGENT_RUNTIME_ID:
-            raise HTTPException(
-                status_code=500, detail="AGENT_RUNTIME_ID environment variable not set"
-            )
-        background_tasks.add_task(run_real_agent_workflow, session_id, req.url)
+    if not AGENT_RUNTIME_ID:
+        raise HTTPException(
+            status_code=500, detail="AGENT_RUNTIME_ID environment variable not set"
+        )
+    background_tasks.add_task(run_real_agent_workflow, session_id, req.url)
     return {"status": "running", "session_id": session_id}
 
 
 @app.get("/api/pending")
 async def get_pending():
-    if os.getenv("LOCAL_TEST") == "1":
-        pending_approvals = []
-        try:
-            for s_id, state in active_sessions.items():
-                if state.get("status") == "interrupted":
-                    try:
-                        session = local_session_service.get_session_sync(
-                            user_id="default-user", app_name="app", session_id=s_id
-                        )
-                        if not session or not session.events:
-                            continue
-
-                        calls = {}
-                        responses = set()
-
-                        for event in session.events:
-                            if event.content and event.content.parts:
-                                for part in event.content.parts:
-                                    if (
-                                        part.function_call
-                                        and part.function_call.name
-                                        == "adk_request_input"
-                                    ):
-                                        calls[part.function_call.id] = (
-                                            part.function_call.args
-                                        )
-                                    elif (
-                                        part.function_response
-                                        and part.function_response.name
-                                        == "adk_request_input"
-                                    ):
-                                        responses.add(part.function_response.id)
-
-                        for interrupt_id, args in calls.items():
-                            if interrupt_id not in responses:
-                                course_profile = session.state.get("course_profile", {})
-                                current_node = "START"
-                                for event in session.events:
-                                    if event.node_name:
-                                        current_node = event.node_name
-
-                                pending_approvals.append(
-                                    {
-                                        "session_id": session.id,
-                                        "interrupt_id": interrupt_id,
-                                        "message": args.get(
-                                            "message", "Input required"
-                                        ),
-                                        "course_profile": course_profile,
-                                        "current_node": current_node,
-                                    }
-                                )
-                    except Exception as s_err:
-                        logger.error(f"Error checking local session {s_id}: {s_err}")
-            return pending_approvals
-        except Exception:
-            logger.exception("Error listing local pending approvals")
-            return []
-
     if not session_service:
         return []
     try:
@@ -810,19 +492,7 @@ async def get_session_status(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
 
     current_node = state.get("current_node", "START")
-    if os.getenv("LOCAL_TEST") == "1":
-        try:
-            session = local_session_service.get_session_sync(
-                user_id="default-user", app_name="app", session_id=session_id
-            )
-            if session and session.events:
-                for event in session.events:
-                    if event.node_name:
-                        current_node = event.node_name
-                state["current_node"] = current_node
-        except Exception as e:
-            logger.error(f"Error checking local session progress: {e}")
-    elif session_service:
+    if session_service:
         try:
             session = await session_service.get_session(
                 app_name="app", user_id="default-user", session_id=session_id
@@ -850,13 +520,6 @@ async def get_session_status(session_id: str):
 async def post_action(
     session_id: str, req: ActionRequest, background_tasks: BackgroundTasks
 ):
-    if os.getenv("LOCAL_TEST") == "1":
-        val = req.value or str(req.approved)
-        background_tasks.add_task(
-            resume_mock_agent_workflow, session_id, val, req.interrupt_id
-        )
-        return {"status": "resuming"}
-
     if not AGENT_RUNTIME_ID:
         raise HTTPException(
             status_code=500, detail="AGENT_RUNTIME_ID environment variable not set"

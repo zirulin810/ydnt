@@ -63,18 +63,3 @@ MODEL_ROUTING: str = os.getenv("MODEL_ROUTING", "gemini-2.5-flash")
 
 # Semantic judgment (capable): used for creator_verify, free_alt_score, verdict
 MODEL_JUDGMENT: str = os.getenv("MODEL_JUDGMENT", "gemini-2.5-flash")
-
-# ---------------------------------------------------------------------------
-# Mock / Development
-# ---------------------------------------------------------------------------
-# Set USE_MOCK=0 to disable cached responses.
-# In cloud environment, we default USE_MOCK to "0" (False) for live analysis.
-# Locally, we default USE_MOCK to "1" (True) to preserve YouTube API quota.
-_is_cloud = bool(
-    os.getenv("K_SERVICE") or os.getenv("AIP_MODE") or os.getenv("GOOGLE_CLOUD_PROJECT")
-)
-_default_mock = "0" if _is_cloud else "1"
-USE_MOCK: bool = os.getenv("USE_MOCK", _default_mock) == "1"
-
-# Cache directory for mock data
-CACHE_DIR: str = os.getenv("CACHE_DIR", "cache")

@@ -14,144 +14,32 @@
 
 """FastMCP server for YDNT due diligence tools.
 
-Design: Implements the 6 core investigative tools. Supports both live API mode
-and a robust cached mock mode. Bifurcates logic into clear mock and live paths.
+Design: Implements the core investigative tools against live APIs
+(Jina Reader for sales pages, YouTube Data API, youtube-transcript-api).
 """
 
 from __future__ import annotations
 
-import json
-import os
 import re
 from typing import Any
 
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-from app.config import CACHE_DIR, JINA_API_KEY, USE_MOCK, YOUTUBE_API_KEY
+from app.config import JINA_API_KEY, YOUTUBE_API_KEY
 
 mcp = FastMCP("ydnt-tools")
-
-
-class MockDataMissing(Exception):
-    """Raised when mock data or fixture is missing in mock mode."""
-
-    pass
 
 
 MAX_TRANSCRIPT_CHARS: int = 3000
 
 
 # ---------------------------------------------------------------------------
-# Mock / Cache Helpers
+# Implementations
 # ---------------------------------------------------------------------------
-def get_case_name(query_or_url: str) -> str:
-    """Detects the demo case name from a search query or URL keyword.
-
-    Behavior: Under mock mode, this will raise MockDataMissing if the query
-    does not match any of the known cases.
-    """
-    normalized = query_or_url.lower()
-    if "andrew" in normalized or "ng" in normalized:
-        return "andrew_ng_ml"
-    if "fast.ai" in normalized or "fastai" in normalized:
-        return "fastai"
-    if "automation" in normalized or "agency" in normalized:
-        return "ai_automation_agency"
-    if "injection" in normalized:
-        return "injection_case"
-    if "skool" in normalized or "games" in normalized:
-        return "skool_games"
-
-    if USE_MOCK:
-        raise MockDataMissing(f"No mock case found for query or URL: {query_or_url}")
-    return "skool_games"
-
-
-def load_mock_cache(case_name: str) -> dict:
-    """Loads the mock JSON file for a given case name.
-
-    Behavior: Raises MockDataMissing if the mock data file does not exist.
-    """
-    path = os.path.join(CACHE_DIR, f"{case_name}.json")
-    if not os.path.exists(path):
-        raise MockDataMissing(f"Mock file not found for case: {case_name}")
-    try:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        raise MockDataMissing(
-            f"Failed to load mock file for case {case_name}: {e}"
-        ) from e
-
-
-# ---------------------------------------------------------------------------
-# Mock Implementations
-# ---------------------------------------------------------------------------
-def _mock_fetch_sales_page(url_or_case: str) -> str:
-    case_name = get_case_name(url_or_case)
-    cache = load_mock_cache(case_name)
-    val = cache.get("sales_page_raw")
-    if not val:
-        raise MockDataMissing(
-            f"sales_page_raw not found in mock data for case: {case_name}"
-        )
-    return val
-
-
-def _mock_search_youtube(query: str) -> list[dict[str, Any]]:
-    case_name = get_case_name(query)
-    cache = load_mock_cache(case_name)
-    val = cache.get("youtube_search")
-    if val is None:
-        raise MockDataMissing(
-            f"youtube_search not found in mock data for case: {case_name}"
-        )
-    return val
-
-
-def _mock_get_youtube_transcript(video_id: str) -> str:
-    for filename in os.listdir(CACHE_DIR):
-        if filename.endswith(".json"):
-            path = os.path.join(CACHE_DIR, filename)
-            try:
-                with open(path, encoding="utf-8") as f:
-                    cache = json.load(f)
-            except Exception:
-                continue
-            transcripts = cache.get("transcripts", {})
-            if transcripts and video_id in transcripts:
-                return transcripts[video_id]
-    raise MockDataMissing(
-        f"Mock transcript not found in cache for video ID: {video_id}"
-    )
-
-
-def _mock_get_channel_stats(channel_id: str) -> dict[str, Any]:
-    for filename in os.listdir(CACHE_DIR):
-        if filename.endswith(".json"):
-            path = os.path.join(CACHE_DIR, filename)
-            try:
-                with open(path, encoding="utf-8") as f:
-                    cache = json.load(f)
-            except Exception:
-                continue
-            stats = cache.get("channel_stats", {})
-            if stats and stats.get("channel_id") == channel_id:
-                return stats
-    raise MockDataMissing(
-        f"Channel stats not found in mock cache for channel ID: {channel_id}"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Live Implementations
-# ---------------------------------------------------------------------------
-def _live_fetch_sales_page(url_or_case: str) -> str:
-    if not (url_or_case.startswith("http://") or url_or_case.startswith("https://")):
-        raise ValueError(
-            f"fetch_sales_page requires a valid HTTP/HTTPS URL in live mode: {url_or_case}"
-        )
+def _fetch_sales_page(url: str) -> str:
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise ValueError(f"fetch_sales_page requires a valid HTTP/HTTPS URL: {url}")
 
     jina_api_key = JINA_API_KEY
 
@@ -173,7 +61,7 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
 
     # Attempt 1: Default headers (no format specified)
     try:
-        text = fetch_from_jina(url_or_case, return_markdown=False)
+        text = fetch_from_jina(url, return_markdown=False)
         if text:
             results.append(text)
     except Exception as e:
@@ -185,7 +73,7 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
     if needs_attempt_2:
         # Attempt 2: X-Return-Format: markdown
         try:
-            text = fetch_from_jina(url_or_case, return_markdown=True)
+            text = fetch_from_jina(url, return_markdown=True)
             if text:
                 results.append(text)
         except Exception as e:
@@ -211,8 +99,8 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
             import time
 
             ts = int(time.time())
-            sep = "&" if "?" in url_or_case else "?"
-            bypass_url = f"{url_or_case}{sep}t={ts}"
+            sep = "&" if "?" in url else "?"
+            bypass_url = f"{url}{sep}t={ts}"
 
             bypass_results = []
             try:
@@ -245,12 +133,12 @@ def _live_fetch_sales_page(url_or_case: str) -> str:
             return cleaned
 
     err_msg = "; ".join(errors) or "Returned empty content from all attempts."
-    raise RuntimeError(f"Live sales page fetch failed for {url_or_case}: {err_msg}")
+    raise RuntimeError(f"Sales page fetch failed for {url}: {err_msg}")
 
 
-def _live_search_youtube(query: str) -> list[dict[str, Any]]:
+def _search_youtube(query: str) -> list[dict[str, Any]]:
     if not YOUTUBE_API_KEY:
-        raise ValueError("YOUTUBE_API_KEY is not configured for live mode")
+        raise ValueError("YOUTUBE_API_KEY is not configured")
     url = "https://www.googleapis.com/youtube/v3/search"
     params = {
         "part": "snippet",
@@ -292,15 +180,13 @@ def _live_search_youtube(query: str) -> list[dict[str, Any]]:
         status = getattr(getattr(e, "response", None), "status_code", None)
         detail = f"HTTP {status}" if status else type(e).__name__
         raise RuntimeError(
-            f"Live YouTube search failed for query '{query}' ({detail})"
+            f"YouTube search failed for query '{query}' ({detail})"
         ) from e
     except Exception as e:
-        raise RuntimeError(
-            f"Live YouTube search failed for query '{query}': {e}"
-        ) from e
+        raise RuntimeError(f"YouTube search failed for query '{query}': {e}") from e
 
 
-def _live_get_youtube_transcript(video_id: str) -> str:
+def _get_youtube_transcript(video_id: str) -> str:
     from youtube_transcript_api import YouTubeTranscriptApi
 
     try:
@@ -332,9 +218,9 @@ def _channel_stats_not_found(channel_id: str, reason: str) -> dict[str, Any]:
     }
 
 
-def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
+def _get_channel_stats(channel_id: str) -> dict[str, Any]:
     if not YOUTUBE_API_KEY:
-        raise ValueError("YOUTUBE_API_KEY is not configured for live mode")
+        raise ValueError("YOUTUBE_API_KEY is not configured")
 
     if not re.fullmatch(r"UC[0-9A-Za-z_-]{22}", channel_id or ""):
         return _channel_stats_not_found(channel_id, "invalid channel_id format")
@@ -385,31 +271,21 @@ def _live_get_channel_stats(channel_id: str) -> dict[str, Any]:
 # MCP Tools
 # ---------------------------------------------------------------------------
 @mcp.tool()
-def fetch_sales_page(url_or_case: str) -> str:
-    """Fetches the raw text content of a course sales page.
-
-    Design: Implements clean mock/live bifurcation.
-    """
-    if USE_MOCK:
-        return _mock_fetch_sales_page(url_or_case)
-    return _live_fetch_sales_page(url_or_case)
+def fetch_sales_page(url: str) -> str:
+    """Fetches the raw text content of a course sales page."""
+    return _fetch_sales_page(url)
 
 
 @mcp.tool()
 def search_youtube(query: str) -> list[dict[str, Any]]:
     """Searches YouTube for tutorials and videos covering a specific query."""
-    if USE_MOCK:
-        return _mock_search_youtube(query)
-    return _live_search_youtube(query)
+    return _search_youtube(query)
 
 
 @mcp.tool()
 def get_youtube_transcript(video_id: str) -> str:
     """Retrieves the transcript/captions for a specified YouTube video."""
-    if USE_MOCK:
-        raw_transcript = _mock_get_youtube_transcript(video_id)
-    else:
-        raw_transcript = _live_get_youtube_transcript(video_id)
+    raw_transcript = _get_youtube_transcript(video_id)
 
     if len(raw_transcript) > MAX_TRANSCRIPT_CHARS:
         return raw_transcript[:MAX_TRANSCRIPT_CHARS] + " [TRUNCATED]"
@@ -419,9 +295,7 @@ def get_youtube_transcript(video_id: str) -> str:
 @mcp.tool()
 def get_channel_stats(channel_id: str) -> dict[str, Any]:
     """Retrieves subscriber count and video upload statistics for a channel."""
-    if USE_MOCK:
-        return _mock_get_channel_stats(channel_id)
-    return _live_get_channel_stats(channel_id)
+    return _get_channel_stats(channel_id)
 
 
 if __name__ == "__main__":

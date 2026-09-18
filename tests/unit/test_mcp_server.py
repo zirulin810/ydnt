@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for the MCP server tools, focusing on mock/live boundary isolation."""
+"""Unit tests for the MCP server tools, with network calls stubbed."""
 
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ import httpx
 import pytest
 
 from app.mcp_server import (
-    MockDataMissing,
     fetch_sales_page,
     get_channel_stats,
     get_youtube_transcript,
@@ -28,52 +27,14 @@ from app.mcp_server import (
 )
 
 
-# ===========================================================================
-# Mock Mode Tests
-# ===========================================================================
-def test_mock_mode_known_case(monkeypatch) -> None:
-    """Verifies that in mock mode, known cases successfully load non-empty sales page content."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
-    sales_page = fetch_sales_page("andrew")
-    assert sales_page
-    assert isinstance(sales_page, str)
-    assert len(sales_page) > 0
-
-
-def test_mock_mode_unknown_case_raises(monkeypatch) -> None:
-    """Verifies that in mock mode, unknown or missing fixture cases raise MockDataMissing."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
-    with pytest.raises(MockDataMissing):
-        fetch_sales_page("non_existent_case_keyword_12345")
-
-
-def test_mock_mode_get_youtube_transcript_missing(monkeypatch) -> None:
-    """Verifies that get_youtube_transcript raises MockDataMissing if not found in mock cache."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
-    with pytest.raises(MockDataMissing):
-        get_youtube_transcript("non_existent_video_id_9999")
-
-
-def test_mock_mode_get_channel_stats_missing(monkeypatch) -> None:
-    """Verifies that get_channel_stats raises MockDataMissing if not found in mock cache."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
-    with pytest.raises(MockDataMissing):
-        get_channel_stats("non_existent_channel_id_9999")
-
-
-# ===========================================================================
-# Live Mode Tests
-# ===========================================================================
-def test_live_mode_fetch_sales_page_invalid_url(monkeypatch) -> None:
-    """Verifies that live fetch_sales_page raises ValueError if input is not a URL."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+def test_fetch_sales_page_invalid_url(monkeypatch) -> None:
+    """Verifies that fetch_sales_page raises ValueError if input is not a URL."""
     with pytest.raises(ValueError):
         fetch_sales_page("andrew")
 
 
-def test_live_mode_fetch_sales_page_http_error(monkeypatch) -> None:
-    """Verifies that live fetch_sales_page raises RuntimeError on HTTP failure (500) from both attempts."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+def test_fetch_sales_page_http_error(monkeypatch) -> None:
+    """Verifies that fetch_sales_page raises RuntimeError on HTTP failure (500) from both attempts."""
 
     def mock_get(*args, **kwargs):
         return httpx.Response(500, request=httpx.Request("GET", args[0]))
@@ -85,9 +46,8 @@ def test_live_mode_fetch_sales_page_http_error(monkeypatch) -> None:
     assert "failed" in str(exc_info.value).lower()
 
 
-def test_live_mode_fetch_sales_page_network_exception(monkeypatch) -> None:
-    """Verifies that live fetch_sales_page raises RuntimeError on network/request exceptions from both attempts."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
+def test_fetch_sales_page_network_exception(monkeypatch) -> None:
+    """Verifies that fetch_sales_page raises RuntimeError on network/request exceptions from both attempts."""
 
     def mock_get(*args, **kwargs):
         raise httpx.RequestError("Network connection lost")
@@ -98,13 +58,11 @@ def test_live_mode_fetch_sales_page_network_exception(monkeypatch) -> None:
         fetch_sales_page("https://example.com/course")
 
 
-def test_live_mode_fetch_sales_page_fallback_longer(monkeypatch) -> None:
-    """Verifies that live fetch_sales_page falls back to Attempt 2 when Attempt 1 result is too short,
+def test_fetch_sales_page_fallback_longer(monkeypatch) -> None:
+    """Verifies that fetch_sales_page falls back to Attempt 2 when Attempt 1 result is too short,
 
     and returns the longer of the two results.
     """
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
-
     call_count = 0
 
     def mock_get(url, *args, **kwargs):
@@ -132,9 +90,8 @@ def test_live_mode_fetch_sales_page_fallback_longer(monkeypatch) -> None:
     assert len(result) > 800
 
 
-def test_live_mode_search_youtube_api_error(monkeypatch) -> None:
+def test_search_youtube_api_error(monkeypatch) -> None:
     """Verifies that live search_youtube raises RuntimeError on YouTube API error."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
     monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", "fake_key")
 
     def mock_get(*args, **kwargs):
@@ -146,17 +103,15 @@ def test_live_mode_search_youtube_api_error(monkeypatch) -> None:
         search_youtube("andrew")
 
 
-def test_live_mode_search_youtube_no_api_key(monkeypatch) -> None:
+def test_search_youtube_no_api_key(monkeypatch) -> None:
     """Verifies that live search_youtube raises ValueError when API key is missing."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
     monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", None)
     with pytest.raises(ValueError):
         search_youtube("andrew")
 
 
-def test_live_mode_get_channel_stats_api_error(monkeypatch) -> None:
+def test_get_channel_stats_api_error(monkeypatch) -> None:
     """Verifies that live get_channel_stats returns fallback sentinel dictionary on YouTube API error."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
     monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", "fake_key")
 
     def mock_get(*args, **kwargs):
@@ -170,9 +125,8 @@ def test_live_mode_get_channel_stats_api_error(monkeypatch) -> None:
     assert "error" in res
 
 
-def test_live_mode_get_channel_stats_malformed_id(monkeypatch) -> None:
+def test_get_channel_stats_malformed_id(monkeypatch) -> None:
     """Verifies that live get_channel_stats validates channel_id format and short-circuits without calling API."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
     monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", "fake_key")
 
     def fail_if_called(*args, **kwargs):
@@ -186,9 +140,8 @@ def test_live_mode_get_channel_stats_malformed_id(monkeypatch) -> None:
     assert "invalid channel_id format" in res["error"]
 
 
-def test_live_mode_get_channel_stats_empty_response(monkeypatch) -> None:
+def test_get_channel_stats_empty_response(monkeypatch) -> None:
     """Verifies that live get_channel_stats handles empty items response gracefully."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
     monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", "fake_key")
 
     def mock_get(*args, **kwargs):
@@ -204,17 +157,15 @@ def test_live_mode_get_channel_stats_empty_response(monkeypatch) -> None:
     assert "channel not found" in res["error"]
 
 
-def test_live_mode_get_channel_stats_no_api_key(monkeypatch) -> None:
+def test_get_channel_stats_no_api_key(monkeypatch) -> None:
     """Verifies that live get_channel_stats raises ValueError when API key is missing."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
     monkeypatch.setattr("app.mcp_server.YOUTUBE_API_KEY", None)
     with pytest.raises(ValueError):
         get_channel_stats("channel_123")
 
 
-def test_live_mode_get_youtube_transcript_success(monkeypatch) -> None:
+def test_get_youtube_transcript_success(monkeypatch) -> None:
     """Verifies that live get_youtube_transcript fetches and concatenates transcript snippets."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
 
     class MockYouTubeTranscriptApi:
         def fetch(self, video_id, languages=None, preserve_formatting=False):
@@ -233,9 +184,8 @@ def test_live_mode_get_youtube_transcript_success(monkeypatch) -> None:
     assert text == "Hello world This is a transcript"
 
 
-def test_live_mode_get_youtube_transcript_failure(monkeypatch) -> None:
+def test_get_youtube_transcript_failure(monkeypatch) -> None:
     """Verifies that live get_youtube_transcript raises RuntimeError on fetch exception."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
 
     class MockYouTubeTranscriptApi:
         def fetch(self, video_id, languages=None, preserve_formatting=False):
@@ -253,12 +203,8 @@ def test_live_mode_get_youtube_transcript_failure(monkeypatch) -> None:
 
 def test_get_youtube_transcript_truncation(monkeypatch) -> None:
     """Verifies that get_youtube_transcript truncates outputs exceeding MAX_TRANSCRIPT_CHARS."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
-
     long_str = "A" * 4000
-    monkeypatch.setattr(
-        "app.mcp_server._mock_get_youtube_transcript", lambda vid: long_str
-    )
+    monkeypatch.setattr("app.mcp_server._get_youtube_transcript", lambda vid: long_str)
 
     from app.mcp_server import MAX_TRANSCRIPT_CHARS
 
@@ -268,10 +214,8 @@ def test_get_youtube_transcript_truncation(monkeypatch) -> None:
     assert result.startswith("A" * MAX_TRANSCRIPT_CHARS)
 
 
-def test_live_mode_fetch_sales_page_headers_x_timeout(monkeypatch) -> None:
+def test_fetch_sales_page_headers_x_timeout(monkeypatch) -> None:
     """Verifies that the GET request to Jina Reader includes the X-Timeout: 15 header."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
-
     headers_captured = []
 
     def mock_get(url, *args, **kwargs):
@@ -286,13 +230,11 @@ def test_live_mode_fetch_sales_page_headers_x_timeout(monkeypatch) -> None:
     assert headers_captured[0].get("X-Timeout") == "15"
 
 
-def test_live_mode_fetch_sales_page_cache_bypass_retry(monkeypatch) -> None:
+def test_fetch_sales_page_cache_bypass_retry(monkeypatch) -> None:
     """Verifies the safety net: if initial fetches return loading screen/short text,
 
     it triggers a cache-bypass retry with a timestamp parameter and returns the full result.
     """
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", False)
-
     requests_captured = []
 
     def mock_get(url, *args, **kwargs):

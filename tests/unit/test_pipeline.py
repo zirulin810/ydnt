@@ -26,29 +26,33 @@ class MockContext:
         self.state = state or {}
 
 
-def test_fetch_page_node_mock(monkeypatch) -> None:
-    """Tests fetch_page_node in mock mode with a known case."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
+def test_fetch_page_node_ok(monkeypatch) -> None:
+    """Tests fetch_page_node stores fetched page text and routes to ok."""
+    monkeypatch.setattr(
+        "app.mcp_server._fetch_sales_page", lambda url: f"Sales page for {url}"
+    )
     ctx = MockContext()
 
-    event = fetch_page_node._func(ctx, "andrew")
+    event = fetch_page_node._func(ctx, "https://example.com/course")
 
-    assert ctx.state["sales_page_raw"]
-    assert isinstance(ctx.state["sales_page_raw"], str)
+    assert ctx.state["sales_page_raw"] == "Sales page for https://example.com/course"
     assert event.output == ctx.state["sales_page_raw"]
     assert event.actions.route == "ok"
 
 
 def test_fetch_page_node_failure(monkeypatch) -> None:
-    """Tests fetch_page_node in mock mode with an unknown case, triggering failure routing."""
-    monkeypatch.setattr("app.mcp_server.USE_MOCK", True)
+    """Tests fetch_page_node routes to insufficient when fetching fails."""
+
+    def fail(url):
+        raise RuntimeError(f"Sales page fetch failed for {url}")
+
+    monkeypatch.setattr("app.mcp_server._fetch_sales_page", fail)
     ctx = MockContext()
 
-    event = fetch_page_node._func(ctx, "non_existent_case_keyword_12345")
+    event = fetch_page_node._func(ctx, "https://example.com/missing")
 
     assert event.actions.route == "insufficient"
-    assert ctx.state["insufficient_reason"]
-    assert "No mock case found" in ctx.state["insufficient_reason"]
+    assert "Sales page fetch failed" in ctx.state["insufficient_reason"]
 
 
 def test_insufficient_verdict_node() -> None:

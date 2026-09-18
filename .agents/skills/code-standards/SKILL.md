@@ -8,7 +8,7 @@ version: 1.0.0
 | Module/file | `snake_case.py` | `mcp_server.py` |
 | Class | `PascalCase` | `CourseProfile` |
 | Function | `snake_case` | `budget_gate` |
-| Constant | `UPPER_SNAKE_CASE` | `USE_MOCK` |
+| Constant | `UPPER_SNAKE_CASE` | `MAX_TRANSCRIPT_CHARS` |
 
 ## Type Annotations
 - All public functions and methods MUST have full type annotations for parameters and return values.

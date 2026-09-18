@@ -43,5 +43,4 @@ This triggers `agents-cli` to:
 When running on Cloud Run, ensure the following variables are configured in the Cloud Run service environment:
 - `GEMINI_API_KEY`: Set to your Google AI Studio key (if not using default Vertex AI project access).
 - `YOUTUBE_API_KEY`: Set to your YouTube Data API key.
-- `GITHUB_TOKEN`: Set to your GitHub personal access token (optional).
-- `USE_MOCK`: Set to `0` for live mode, or `1` to run the fully reproducible mock mode in the cloud.
+

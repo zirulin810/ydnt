@@ -106,7 +106,6 @@ ydnt/
 │     │  └─ SKILL.md
 │     └─ testing-strategy/        # Level 2 skill
 │        └─ SKILL.md
-├─ cache/                         # Mock cache data for 5 demo cases
 ├─ tests/
 │  └─ eval/
 │     └─ datasets/

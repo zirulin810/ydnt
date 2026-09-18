@@ -33,38 +33,33 @@ def fetch_page_node(ctx: Context, node_input: Any) -> Event:
     Design: Deterministic node that calls fetch_sales_page to fetch page content.
     If fetching fails or is missing, routes to insufficient verdict.
     """
-    url_or_case = ""
+    url = ""
     if isinstance(node_input, dict):
-        url_or_case = (
-            node_input.get("url_or_case")
-            or node_input.get("url")
-            or node_input.get("text")
-            or ""
-        )
+        url = node_input.get("url") or node_input.get("text") or ""
     elif isinstance(node_input, str):
-        url_or_case = node_input
+        url = node_input
     elif hasattr(node_input, "parts") and node_input.parts:
         parts_text = []
         for part in node_input.parts:
             if hasattr(part, "text") and part.text:
                 parts_text.append(part.text)
-        url_or_case = " ".join(parts_text).strip()
+        url = " ".join(parts_text).strip()
     elif hasattr(node_input, "text") and node_input.text:
-        url_or_case = str(node_input.text).strip()
+        url = str(node_input.text).strip()
 
-    if not url_or_case:
-        url_or_case = ctx.state.get("url_or_case") or ctx.state.get("url") or ""
+    if not url:
+        url = ctx.state.get("url") or ""
 
-    if not url_or_case:
+    if not url:
         ctx.state["insufficient_reason"] = (
-            "fetch_page_node requires a valid URL or case name as input."
+            "fetch_page_node requires a valid URL as input."
         )
         return Event(route="insufficient")
 
     from app.mcp_server import fetch_sales_page
 
     try:
-        raw_text = fetch_sales_page(url_or_case)
+        raw_text = fetch_sales_page(url)
         if not raw_text:
             raise ValueError("Sales page content is empty.")
     except Exception as e:

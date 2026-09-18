@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for GenAI backend dynamic configuration in config.py."""
+"""Unit tests for GenAI backend dynamic configuration in app/config.py."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def test_configure_genai_backend_vertex(monkeypatch) -> None:
         google.auth, "default", lambda: ("mock_creds", "mock-project-123")
     )
 
-    from config import configure_genai_backend
+    from app.config import configure_genai_backend
 
     configure_genai_backend()
 
@@ -52,7 +52,7 @@ def test_configure_genai_backend_direct_fallback(monkeypatch) -> None:
 
     monkeypatch.setattr(google.auth, "default", mock_default)
 
-    from config import configure_genai_backend
+    from app.config import configure_genai_backend
 
     configure_genai_backend()
 
