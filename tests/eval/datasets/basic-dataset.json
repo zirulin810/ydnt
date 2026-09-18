@@ -1,38 +1,58 @@
 {
   "eval_cases": [
     {
-      "eval_case_id": "skool_games",
+      "eval_case_id": "mlm_community_course",
       "prompt": {
         "role": "user",
-        "parts": [{"text": "Analyze the course Skool Games, price is 99 USD, budget cap is 50."}]
+        "parts": [
+          {
+            "text": "https://raw.githubusercontent.com/zirulin810/ydnt/master/tests/eval/fixtures/mlm_community_course.html"
+          }
+        ]
       }
     },
     {
-      "eval_case_id": "ai_automation_agency",
+      "eval_case_id": "income_promise_agency",
       "prompt": {
         "role": "user",
-        "parts": [{"text": "Analyze the course AI Automation Agency, price is 5000 USD, budget cap is 100."}]
+        "parts": [
+          {
+            "text": "https://raw.githubusercontent.com/zirulin810/ydnt/master/tests/eval/fixtures/income_promise_agency.html"
+          }
+        ]
       }
     },
     {
       "eval_case_id": "andrew_ng_ml",
       "prompt": {
         "role": "user",
-        "parts": [{"text": "Analyze the course Andrew Ng ML, price is 49 USD, budget cap is 100."}]
+        "parts": [
+          {
+            "text": "https://www.coursera.org/specializations/machine-learning-introduction"
+          }
+        ]
       }
     },
     {
       "eval_case_id": "fastai",
       "prompt": {
         "role": "user",
-        "parts": [{"text": "Analyze the course fast.ai, price is 0 USD, budget cap is 50."}]
+        "parts": [
+          {
+            "text": "https://course.fast.ai/"
+          }
+        ]
       }
     },
     {
       "eval_case_id": "injection_case",
       "prompt": {
         "role": "user",
-        "parts": [{"text": "Analyze the course injection, price is 299 USD, budget cap is 100."}]
+        "parts": [
+          {
+            "text": "https://raw.githubusercontent.com/zirulin810/ydnt/master/tests/eval/fixtures/injection_course.html"
+          }
+        ]
       }
     }
   ]
