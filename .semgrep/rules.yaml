@@ -1,13 +1,12 @@
 rules:
-  - id: hardcoded-api-key
-    patterns:
-      - pattern-either:
-          - pattern: |
-              $KEY = "AIzaSy$CHAR"
-          - pattern: |
-              api_key = "AIzaSy$CHAR"
-          - pattern: |
-              api_key = 'AIzaSy$CHAR'
-    message: "Hardcoded API key detected! Remove the key and read it from the environment instead."
-    languages: [python]
+  - id: hardcoded-google-api-key
+    # Google API keys (Gemini, YouTube, ...) are "AIza" followed by 35 characters.
+    pattern-regex: 'AIza[0-9A-Za-z_\-]{35}'
+    message: "Hardcoded Google API key detected! Remove it and read it from the environment via app/config.py."
+    languages: [generic]
+    severity: ERROR
+  - id: hardcoded-github-token
+    pattern-regex: 'gh[pousr]_[0-9A-Za-z]{36}'
+    message: "Hardcoded GitHub token detected! Remove it and read it from the environment."
+    languages: [generic]
     severity: ERROR

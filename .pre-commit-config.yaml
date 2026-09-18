@@ -1,9 +1,12 @@
-# pre-commit configurations for YDNT project
+# pre-commit configurations for YDNT project.
+# Enable once per clone with: uv run pre-commit install
 repos:
   - repo: local
     hooks:
       - id: semgrep
         name: Semgrep Security Scan
-        entry: semgrep --error --config .semgrep/rules.yaml
+        # uvx runs semgrep in its own cached environment, so it never touches
+        # the project dependencies that are deployed with the agent.
+        entry: uvx semgrep@1.177.0 scan --error --quiet --metrics off --config .semgrep/rules.yaml
         language: system
         pass_filenames: false

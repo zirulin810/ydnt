@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 import uuid
 from typing import Any
 
@@ -217,6 +218,39 @@ def agent_error_message(events: list[dict]) -> str:
     return "The agent finished without producing a report."
 
 
+# Finished sessions are deleted right away (the report is kept in
+# active_sessions); sessions abandoned at a HITL pause expire after this long.
+SESSION_TTL_SECONDS = 24 * 60 * 60
+
+
+async def delete_remote_session(session_id: str) -> None:
+    if not session_service:
+        return
+    try:
+        await session_service.delete_session(
+            app_name="app", user_id="default-user", session_id=session_id
+        )
+    except Exception as e:
+        logger.error(f"Failed to delete session {session_id}: {e}")
+
+
+async def cleanup_stale_sessions() -> None:
+    """Deletes Agent Runtime sessions not updated within SESSION_TTL_SECONDS."""
+    if not session_service:
+        return
+    try:
+        resp = await session_service.list_sessions(
+            app_name="app", user_id="default-user"
+        )
+    except Exception as e:
+        logger.error(f"Failed to list sessions for cleanup: {e}")
+        return
+    cutoff = time.time() - SESSION_TTL_SECONDS
+    for session in resp.sessions:
+        if session.last_update_time and session.last_update_time < cutoff:
+            await delete_remote_session(session.id)
+
+
 async def run_failure_reason(session_id: str, events: list[dict]) -> str:
     """Looks for the error in the streamed events, then in the stored session."""
     session_events: list[dict] = []
@@ -332,14 +366,17 @@ async def run_real_agent_workflow(session_id: str, url: str):
         if not output_text:
             error = await run_failure_reason(session_id, events)
             active_sessions[session_id].update({"status": "failed", "error": error})
+            await delete_remote_session(session_id)
             return
 
         active_sessions[session_id].update(
             {"status": "completed", "output": output_text}
         )
+        await delete_remote_session(session_id)
     except Exception as e:
         logger.exception(f"Error in background workflow for session {session_id}")
         active_sessions[session_id].update({"status": "failed", "error": str(e)})
+        await delete_remote_session(session_id)
 
 
 async def resume_real_agent_workflow(session_id: str, message: Any):
@@ -429,16 +466,19 @@ async def resume_real_agent_workflow(session_id: str, message: Any):
         if not output_text:
             error = await run_failure_reason(session_id, events)
             active_sessions[session_id].update({"status": "failed", "error": error})
+            await delete_remote_session(session_id)
             return
 
         active_sessions[session_id].update(
             {"status": "completed", "output": output_text}
         )
+        await delete_remote_session(session_id)
     except Exception as e:
         logger.exception(
             f"Error in background workflow resume for session {session_id}"
         )
         active_sessions[session_id].update({"status": "failed", "error": str(e)})
+        await delete_remote_session(session_id)
 
 
 # ---------------------------------------------------------------------------
@@ -457,67 +497,8 @@ async def post_scan(req: ScanRequest, background_tasks: BackgroundTasks):
             status_code=500, detail="AGENT_RUNTIME_ID environment variable not set"
         )
     background_tasks.add_task(run_real_agent_workflow, session_id, req.url)
+    background_tasks.add_task(cleanup_stale_sessions)
     return {"status": "running", "session_id": session_id}
-
-
-@app.get("/api/pending")
-async def get_pending():
-    if not session_service:
-        return []
-    try:
-        list_resp = await session_service.list_sessions(app_name="app")
-        pending_approvals = []
-
-        for session_info in list_resp.sessions:
-            try:
-                session = await session_service.get_session(
-                    app_name="app", user_id="default-user", session_id=session_info.id
-                )
-                if not session or not session.events:
-                    continue
-
-                calls = {}
-                responses = set()
-
-                for event in session.events:
-                    if event.content and event.content.parts:
-                        for part in event.content.parts:
-                            if (
-                                part.function_call
-                                and part.function_call.name == "adk_request_input"
-                            ):
-                                calls[part.function_call.id] = part.function_call.args
-                            elif (
-                                part.function_response
-                                and part.function_response.name == "adk_request_input"
-                            ):
-                                responses.add(part.function_response.id)
-
-                for interrupt_id, args in calls.items():
-                    if interrupt_id not in responses:
-                        course_profile = session.state.get("course_profile", {})
-                        current_node = "START"
-                        for event in session.events:
-                            if event.node_name:
-                                current_node = event.node_name
-
-                        pending_approvals.append(
-                            {
-                                "session_id": session.id,
-                                "interrupt_id": interrupt_id,
-                                "message": args.get("message", "Input required"),
-                                "course_profile": course_profile,
-                                "current_node": current_node,
-                            }
-                        )
-            except Exception as s_err:
-                logger.error(f"Error checking session {session_info.id}: {s_err}")
-                continue
-
-        return pending_approvals
-    except Exception as e:
-        logger.exception("Error listing pending approvals")
-        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/session/{session_id}/status")
@@ -527,7 +508,7 @@ async def get_session_status(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
 
     current_node = state.get("current_node", "START")
-    if session_service:
+    if session_service and state["status"] in ("running", "interrupted"):
         try:
             session = await session_service.get_session(
                 app_name="app", user_id="default-user", session_id=session_id

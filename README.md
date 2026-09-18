@@ -141,8 +141,8 @@ ydnt/
 
 ## 6. Security Protection & Development Governance
 
-1. **Semgrep Scanning**: `.semgrep/rules.yaml` flags keys matching formats like `AIzaSy*`.
-2. **Pre-commit Hook**: `.pre-commit-config.yaml` runs Semgrep on every `git commit` once enabled with `pre-commit install`.
+1. **Semgrep Scanning**: `.semgrep/rules.yaml` blocks Google API keys (`AIza...`) and GitHub tokens (`ghp_...`) in any tracked file.
+2. **Pre-commit Hook**: `.pre-commit-config.yaml` runs Semgrep on every `git commit`. Enable it once per clone with `uv run pre-commit install`; Semgrep runs in its own isolated environment so it never changes the agent's dependencies.
 3. **PreToolUse Hooks**: `.agents/hooks.json` intercepts file writes from the AI coding assistant to verify:
    - No hardcoded API keys are introduced.
    - No circular imports occur (e.g., schemas depending on nodes).
@@ -159,6 +159,7 @@ ydnt/
 
 ```bash
 uv sync
+uv run pre-commit install
 uv run pytest tests/unit tests/integration
 agents-cli playground
 ```
