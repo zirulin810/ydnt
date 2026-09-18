@@ -195,6 +195,37 @@ def execute_agent_query(engine, message: Any, user_id: str, session_id: str):
     return events
 
 
+def agent_error_message(events: list[dict]) -> str:
+    """Returns a user-facing reason for a run that ended without a report."""
+    for event in reversed(events):
+        code = str(event.get("error_code") or event.get("errorCode") or "")
+        msg = str(event.get("error_message") or event.get("errorMessage") or "")
+        if not (code or msg):
+            continue
+        if "429" in code + msg or "RESOURCE_EXHAUSTED" in code + msg:
+            return (
+                "Gemini is temporarily over capacity (429 RESOURCE_EXHAUSTED). "
+                "Please try again in a few minutes."
+            )
+        return f"Agent error: {code} {msg}".strip()[:500]
+    return "The agent finished without producing a report."
+
+
+async def run_failure_reason(session_id: str, events: list[dict]) -> str:
+    """Looks for the error in the streamed events, then in the stored session."""
+    session_events: list[dict] = []
+    if session_service:
+        try:
+            session = await session_service.get_session(
+                app_name="app", user_id="default-user", session_id=session_id
+            )
+            if session and session.events:
+                session_events = [e.model_dump() for e in session.events]
+        except Exception as s_err:
+            logger.error(f"Error reading session {session_id} for failure: {s_err}")
+    return agent_error_message(session_events + events)
+
+
 # ---------------------------------------------------------------------------
 # Background Agent Runners (Real Vertex AI)
 # ---------------------------------------------------------------------------
@@ -293,10 +324,9 @@ async def run_real_agent_workflow(session_id: str, url: str):
                     break
 
         if not output_text:
-            output_text = (
-                "**Due Diligence has started successfully!**\n\n"
-                "Agent is crawling the sales page and verifying the creator in the background."
-            )
+            error = await run_failure_reason(session_id, events)
+            active_sessions[session_id].update({"status": "failed", "error": error})
+            return
 
         active_sessions[session_id].update(
             {"status": "completed", "output": output_text}
@@ -391,10 +421,9 @@ async def resume_real_agent_workflow(session_id: str, message: Any):
                     break
 
         if not output_text:
-            output_text = (
-                "**Execution resumed successfully!**\n\n"
-                "Agent is analyzing the syllabus and searching for YouTube alternatives in the background."
-            )
+            error = await run_failure_reason(session_id, events)
+            active_sessions[session_id].update({"status": "failed", "error": error})
+            return
 
         active_sessions[session_id].update(
             {"status": "completed", "output": output_text}

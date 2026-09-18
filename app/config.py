@@ -63,3 +63,9 @@ MODEL_ROUTING: str = os.getenv("MODEL_ROUTING", "gemini-2.5-flash")
 
 # Semantic judgment (capable): used for creator_verify, free_alt_score, verdict
 MODEL_JUDGMENT: str = os.getenv("MODEL_JUDGMENT", "gemini-2.5-flash")
+
+# Vertex AI endpoint for Gemini calls. "global" routes to whichever region has
+# capacity, which avoids most 429 RESOURCE_EXHAUSTED errors from a single busy
+# region. Independent of GOOGLE_CLOUD_LOCATION, which the Agent Runtime sets to
+# its deployment region for sessions.
+GEMINI_LOCATION: str = os.getenv("GEMINI_LOCATION", "global")

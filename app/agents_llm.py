@@ -20,26 +20,53 @@ functions to avoid process startup overhead and connection timeouts on Windows.
 
 from __future__ import annotations
 
+import os
+from functools import cached_property
+
 from google.adk.agents import LlmAgent
 from google.adk.models import Gemini
 from google.adk.tools.google_search_agent_tool import (
     GoogleSearchAgentTool,
     create_google_search_agent,
 )
-from google.genai import types
+from google.genai import Client, types
 
-from app.config import MODEL_JUDGMENT, MODEL_ROUTING
+from app.config import GEMINI_LOCATION, MODEL_JUDGMENT, MODEL_ROUTING
 from app.mcp_server import (
     get_channel_stats,
     search_youtube,
 )
 from app.schemas import CourseProfile, CreatorEvidence, FreeAlternatives, Verdict
 
-# Centralized retry options for model requests
-_RETRY_OPTIONS = types.HttpRetryOptions(attempts=3)
+# Centralized retry options for model requests. Vertex AI returns 429 when shared
+# capacity is busy regardless of project usage, so back off for up to ~1 minute.
+_RETRY_OPTIONS = types.HttpRetryOptions(
+    attempts=6, initial_delay=2.0, exp_base=2.0, max_delay=30.0
+)
+
+
+class _Gemini(Gemini):
+    """Gemini that calls Vertex AI through GEMINI_LOCATION instead of the
+    deployment region taken from GOOGLE_CLOUD_LOCATION."""
+
+    @cached_property
+    def api_client(self) -> Client:
+        http_options = types.HttpOptions(
+            headers=self._tracking_headers(), retry_options=self.retry_options
+        )
+        if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("true", "1"):
+            return Client(
+                vertexai=True, location=GEMINI_LOCATION, http_options=http_options
+            )
+        return Client(http_options=http_options)
+
+
+def _gemini(model: str) -> _Gemini:
+    return _Gemini(model=model, retry_options=_RETRY_OPTIONS)
+
 
 # Initialize Google Search Agent Tool for grounding in creator_verify
-_gsa = create_google_search_agent(model=MODEL_JUDGMENT)
+_gsa = create_google_search_agent(model=_gemini(MODEL_JUDGMENT))
 google_search_tool = GoogleSearchAgentTool(_gsa)
 
 
@@ -48,10 +75,7 @@ google_search_tool = GoogleSearchAgentTool(_gsa)
 # ---------------------------------------------------------------------------
 parse_course = LlmAgent(
     name="parse_course",
-    model=Gemini(
-        model=MODEL_ROUTING,
-        retry_options=_RETRY_OPTIONS,
-    ),
+    model=_gemini(MODEL_ROUTING),
     instruction=(
         "You are an online course analyzer. Your task is to analyze the raw text of a course's sales page "
         "passed directly to you and extract a structured profile of the course.\n"
@@ -88,10 +112,7 @@ parse_course = LlmAgent(
 # ---------------------------------------------------------------------------
 creator_verify = LlmAgent(
     name="creator_verify",
-    model=Gemini(
-        model=MODEL_JUDGMENT,
-        retry_options=_RETRY_OPTIONS,
-    ),
+    model=_gemini(MODEL_JUDGMENT),
     instruction=(
         "You are a due diligence investigator. Your task is to verify the online presence, background, "
         "and achievements of the course creator (which can be a named individual, a company, or an institution).\n"
@@ -132,10 +153,7 @@ creator_verify = LlmAgent(
 # ---------------------------------------------------------------------------
 free_alt_score = LlmAgent(
     name="free_alt_score",
-    model=Gemini(
-        model=MODEL_JUDGMENT,
-        retry_options=_RETRY_OPTIONS,
-    ),
+    model=_gemini(MODEL_JUDGMENT),
     instruction=(
         "You are a resource cataloger. Your task is to find free alternative learning materials (specifically YouTube "
         "videos, channels, or playlists) that cover the course's syllabus.\n"
@@ -168,10 +186,7 @@ free_alt_score = LlmAgent(
 # ---------------------------------------------------------------------------
 verdict_agent = LlmAgent(
     name="verdict_agent",
-    model=Gemini(
-        model=MODEL_JUDGMENT,
-        retry_options=_RETRY_OPTIONS,
-    ),
+    model=_gemini(MODEL_JUDGMENT),
     instruction=(
         "You are the final judge of YDNT (You Don't Need This). Your task is to produce the final, evidence-based "
         "due diligence verdict and buying recommendation.\n"
