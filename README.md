@@ -24,6 +24,8 @@ We combine **multi-agent collaboration** and **deterministic routing code** to v
 
 YDNT is designed using the ADK 2.0 Workflow Graph to ensure non-deterministic LLM reasoning is clearly separated from deterministic code logic.
 
+![YDNT architecture: Cloud Run dashboard, Vertex AI Agent Runtime, Gemini 2.5 Flash and external services](docs/architecture.png)
+
 The system always runs the full due diligence pipeline. If page retrieval fails (`fetch_page_node` error) or if triage fails (`triage_course` identifies a non-course page or the user cannot provide critical missing details), the system routes to `insufficient_verdict` for an early, honest termination without fabricating any scores.
 
 ```

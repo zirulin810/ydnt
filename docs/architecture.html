@@ -1,0 +1,207 @@
+<title>YDNT 架構圖</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+  /* 版面：仿簡報的深色網路背景，單一 16:9 架構圖置中 */
+  :root {
+    --bg: #04070d;
+    --ink: #f4f7fb;
+    --muted: #a9b5c7;
+    --arrow: #d5dbe4;
+    --font: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    padding-block: 24px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .frame { max-width: 1366px; margin: 0 auto; overflow-x: auto; }
+  svg { display: block; width: 100%; min-width: 900px; height: auto; font-family: var(--font); }
+  .t1 { font-size: 34px; font-weight: 900; fill: var(--ink); }
+  .lbl { font-size: 19px; font-weight: 700; fill: var(--ink); }
+  .big { font-size: 26px; font-weight: 700; fill: var(--ink); }
+  .sub { font-size: 16px; font-weight: 500; fill: var(--muted); }
+  .arr { stroke: var(--arrow); stroke-width: 5; fill: none; }
+</style>
+
+<div class="frame">
+<svg viewBox="0 0 1366 760" role="img" aria-label="YDNT 系統架構圖">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="40%" r="75%">
+      <stop offset="0" stop-color="#0f1a2c"/>
+      <stop offset="1" stop-color="#04070d"/>
+    </radialGradient>
+    <linearGradient id="cloud" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6ea8fe"/>
+      <stop offset="1" stop-color="#1a73e8"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f8df5"/>
+      <stop offset=".55" stop-color="#9b72cb"/>
+      <stop offset="1" stop-color="#d96570"/>
+    </linearGradient>
+    <linearGradient id="db" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7fa3a8"/>
+      <stop offset=".5" stop-color="#b9d3d6"/>
+      <stop offset="1" stop-color="#7fa3a8"/>
+    </linearGradient>
+    <marker id="head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#d5dbe4"/>
+    </marker>
+  </defs>
+
+  <rect width="1366" height="760" fill="url(#glow)"/>
+  <g id="net" stroke="#3a5378" stroke-opacity=".28" fill="#5f7ea8" fill-opacity=".45"></g>
+
+  <!-- 標題 -->
+  <text x="683" y="62" text-anchor="middle" class="t1">YDNT：線上課程盡職調查 Agent</text>
+  <text x="683" y="106" text-anchor="middle" class="t1">Google ADK × Gemini 技術架構圖</text>
+
+  <!-- Vertex AI Agent Runtime -->
+  <g>
+    <circle cx="632" cy="262" r="48" fill="url(#cloud)"/>
+    <circle cx="690" cy="228" r="66" fill="url(#cloud)"/>
+    <circle cx="750" cy="262" r="46" fill="url(#cloud)"/>
+    <rect x="586" y="250" width="212" height="58" rx="29" fill="url(#cloud)"/>
+    <path d="M650 255 L695 222 M650 255 L695 285 M695 222 L742 255 M695 285 L742 255" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="650" cy="255" r="12" fill="#fff"/>
+    <circle cx="695" cy="222" r="12" fill="#fff"/>
+    <circle cx="695" cy="285" r="12" fill="#fff"/>
+    <circle cx="742" cy="255" r="12" fill="#fff"/>
+  </g>
+  <text x="692" y="346" text-anchor="middle" class="big">Vertex AI Agent Runtime</text>
+  <text x="790" y="152" class="lbl">ADK 2.0 Workflow DAG</text>
+  <text x="790" y="176" class="lbl">Python + Pydantic</text>
+
+  <!-- Cloud Run Dashboard -->
+  <g>
+    <rect x="116" y="200" width="130" height="130" rx="22" fill="#4285f4"/>
+    <path d="M150 230 L185 265 L150 300 M188 230 L223 265 L188 300" stroke="#fff" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="181" y="358" text-anchor="middle" class="big">Cloud Run</text>
+  <text x="181" y="388" text-anchor="middle" class="sub">FastAPI Dashboard</text>
+
+  <!-- 使用者 -->
+  <g>
+    <rect x="118" y="487" width="126" height="96" rx="12" fill="#10161f" stroke="#8ab4f8" stroke-width="4"/>
+    <path d="M118 511 H244" stroke="#8ab4f8" stroke-width="3"/>
+    <circle cx="134" cy="499" r="4" fill="#8ab4f8"/>
+    <circle cx="148" cy="499" r="4" fill="#8ab4f8"/>
+    <circle cx="162" cy="499" r="4" fill="#8ab4f8"/>
+    <rect x="134" y="525" width="94" height="12" rx="6" fill="#5f7ea8"/>
+    <rect x="134" y="547" width="60" height="22" rx="6" fill="#8ab4f8"/>
+  </g>
+  <text x="181" y="652" text-anchor="middle" class="big">使用者</text>
+  <text x="181" y="682" text-anchor="middle" class="sub">瀏覽器</text>
+
+  <!-- Vertex AI Sessions -->
+  <g>
+    <path d="M372 498 V588 A60 18 0 0 0 492 588 V498" fill="url(#db)"/>
+    <ellipse cx="432" cy="498" rx="60" ry="18" fill="#d3e6e8" stroke="#8fb1b5" stroke-width="2"/>
+    <path d="M372 528 A60 18 0 0 0 492 528 M372 558 A60 18 0 0 0 492 558" stroke="#7fa3a8" stroke-width="2" fill="none"/>
+  </g>
+  <text x="432" y="652" text-anchor="middle" class="big">Vertex AI Sessions</text>
+  <text x="432" y="682" text-anchor="middle" class="sub">Session Service</text>
+
+  <!-- Jina Reader -->
+  <g>
+    <path d="M635 476 H708 L735 503 V594 H635 z" fill="#f4f7fb"/>
+    <path d="M708 476 V503 H735" fill="#c9d2de"/>
+    <rect x="650" y="520" width="70" height="8" rx="4" fill="#5f7ea8"/>
+    <rect x="650" y="540" width="56" height="8" rx="4" fill="#5f7ea8"/>
+    <rect x="650" y="560" width="70" height="8" rx="4" fill="#5f7ea8"/>
+  </g>
+  <text x="683" y="652" text-anchor="middle" class="big">Jina Reader</text>
+  <text x="683" y="682" text-anchor="middle" class="sub">r.jina.ai</text>
+
+  <!-- YouTube -->
+  <g>
+    <rect x="870" y="490" width="130" height="92" rx="24" fill="#ff0033"/>
+    <path d="M920 512 L960 536 L920 560 z" fill="#fff"/>
+  </g>
+  <text x="935" y="652" text-anchor="middle" class="big">YouTube</text>
+  <text x="935" y="682" text-anchor="middle" class="sub">Data API v3・字幕</text>
+
+  <!-- Gemini -->
+  <g>
+    <rect x="1120" y="200" width="130" height="130" rx="22" fill="#1b1f2a" stroke="#3c4458" stroke-width="2"/>
+    <path d="M1185 222 C1190 252 1198 260 1228 265 C1198 270 1190 278 1185 308 C1180 278 1172 270 1142 265 C1172 260 1180 252 1185 222 z" fill="url(#gem)"/>
+  </g>
+  <text x="1185" y="358" text-anchor="middle" class="big">Gemini 2.5 Flash</text>
+  <text x="1185" y="388" text-anchor="middle" class="sub">Vertex AI</text>
+
+  <!-- Google Search -->
+  <g>
+    <rect x="1120" y="470" width="130" height="130" rx="22" fill="#f4f7fb"/>
+    <circle cx="1176" cy="526" r="28" fill="none" stroke="#4285f4" stroke-width="10"/>
+    <path d="M1197 547 L1222 572" stroke="#4285f4" stroke-width="12" stroke-linecap="round"/>
+  </g>
+  <text x="1185" y="652" text-anchor="middle" class="big">Google Search</text>
+  <text x="1185" y="682" text-anchor="middle" class="sub">Grounding</text>
+
+  <!-- 箭頭 -->
+  <path class="arr" d="M181 404 V466" marker-start="url(#head)" marker-end="url(#head)"/>
+  <path class="arr" d="M266 262 H566" marker-start="url(#head)" marker-end="url(#head)"/>
+  <path class="arr" d="M818 262 H1102" marker-start="url(#head)" marker-end="url(#head)"/>
+  <path class="arr" d="M683 372 V458" marker-start="url(#head)" marker-end="url(#head)"/>
+  <path class="arr" d="M566 374 L470 468" marker-start="url(#head)" marker-end="url(#head)"/>
+  <path class="arr" d="M818 374 L902 472" marker-start="url(#head)" marker-end="url(#head)"/>
+  <path class="arr" d="M1185 404 V456" marker-start="url(#head)" marker-end="url(#head)"/>
+
+  <!-- 箭頭說明 -->
+  <text x="198" y="440" class="lbl">HTTPS・輪詢進度</text>
+
+  <text x="414" y="218" text-anchor="middle" class="lbl">Agent Runtime API</text>
+  <text x="414" y="242" text-anchor="middle" class="lbl">stream_query</text>
+  <text x="414" y="298" text-anchor="middle" class="lbl">節點進度串流</text>
+  <text x="414" y="322" text-anchor="middle" class="lbl">HITL 暫停／恢復</text>
+
+  <text x="960" y="218" text-anchor="middle" class="lbl">4 個 LlmAgent</text>
+  <text x="960" y="242" text-anchor="middle" class="lbl">Gemini API</text>
+  <text x="960" y="298" text-anchor="middle" class="lbl">影片 URL 取樣判讀</text>
+  <text x="960" y="322" text-anchor="middle" class="lbl">Pydantic 結構化輸出</text>
+
+  <text x="490" y="400" text-anchor="end" class="lbl">可恢復 session</text>
+  <text x="490" y="424" text-anchor="end" class="lbl">HITL 暫停點</text>
+
+  <text x="700" y="420" class="lbl">抓取銷售頁</text>
+
+  <text x="885" y="405" class="lbl">search_youtube</text>
+  <text x="885" y="429" class="lbl">頻道數據・字幕</text>
+
+  <text x="1168" y="428" text-anchor="end" class="lbl">Grounding</text>
+  <text x="1168" y="452" text-anchor="end" class="lbl">查證講師</text>
+
+  <text x="683" y="736" text-anchor="middle" class="sub">LLM 只負責擷取、查證與綜整；評分與判決由 Python 決定</text>
+</svg>
+</div>
+
+<script>
+  // 背景的網路節點，固定亂數種子讓每次畫面一樣
+  (function () {
+    var g = document.getElementById("net"), ns = "http://www.w3.org/2000/svg";
+    var s = 7, rnd = function () { s = (s * 16807) % 2147483647; return s / 2147483647; };
+    var pts = [];
+    for (var i = 0; i < 55; i++) pts.push([rnd() * 1366, rnd() * 760]);
+    pts.forEach(function (p, i) {
+      pts.forEach(function (q, j) {
+        if (j <= i) return;
+        var d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+        if (d < 190) {
+          var l = document.createElementNS(ns, "line");
+          l.setAttribute("x1", p[0]); l.setAttribute("y1", p[1]);
+          l.setAttribute("x2", q[0]); l.setAttribute("y2", q[1]);
+          g.appendChild(l);
+        }
+      });
+      var c = document.createElementNS(ns, "circle");
+      c.setAttribute("cx", p[0]); c.setAttribute("cy", p[1]); c.setAttribute("r", 2.5);
+      g.appendChild(c);
+    });
+  })();
+</script>
